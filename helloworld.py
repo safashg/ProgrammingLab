@@ -1,3 +1,3 @@
 print("Hello, World!")
-print("och menno")
+print("Hello, World!")
 
