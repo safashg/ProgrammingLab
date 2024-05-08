@@ -2,54 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pizza</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-        }
-        header {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #logo {
-            margin-right: 20px;
-            width: 150px;
-            height: auto;
-       }
-        #search {
-            margin-top: 10px;
-            text-align: center;
-        }
-        #search form {
-            display: inline-block;
-        }
-        #search input[type="text"],
-        #search select,
-        #search button {
-            margin-right: 10px;
-             font-family: Arial, sans-serif;
-        }
-    </style>
+    <title>Product and Store Viewer</title>
 </head>
 <body>
-    <header>
-        <div id="logo">
-            <img src="../static/logo.jpg" alt="Logo" width="150">
-        </div>
-    </header>
-    <div id="search">
-        <form action="#" method="GET">
-            <select id="searchOption" name="searchOption">
-                <option value="stores">Stores</option>
-                <option value="items">Items</option>
-                <option value="products">Products</option>
-            </select>
-            <input type="text" name="searchQuery" placeholder="Enter search term">
-            <button type="submit">Search</button>
-        </form>
-    </div>
+    <h1>Welcome to the Product and Store Viewer</h1>
+    <form method="POST">
+        <select name="selection">
+            <option value="Stores">Stores</option>
+            <option value="Products">Products</option>
+        </select>
+        <button type="submit">Submit</button>
+    </form>
+    {% if selection %}
+        <h2>Showing: {{ selection }}</h2>
+        <ul>
+            {% for item in results %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
 </body>
 </html>
