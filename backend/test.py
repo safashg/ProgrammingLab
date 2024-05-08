@@ -1,44 +1,35 @@
-from flask import Flask, jsonify
-import mysql.connector
+from flask import Flask, render_template, request
+import pymysql
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../frontend/templates')
 
-# Database configuration
-db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'Pizzaservice123!',
-    'database': 'your_database_name',  # replace with your actual database name
-    'port': 3306  # default port for MySQL, can be omitted
-}
+def get_db_connection():
+    connection = pymysql.connect(
+        host='localhost',
+        user='root',
+        password='Pizzaservice123!',
+        database='pizzadata'
+    )
+    return connection
 
-
-@app.route('/store/most_orders', methods=['GET'])
-def store_with_most_orders():
-    try:
-        connection = mysql.connector.connect(**db_config)
-        cursor = connection.cursor(dictionary=True)
-
-        query = """
-        SELECT storeID, COUNT(orderID) AS order_count
-        FROM orders
-        GROUP BY storeID
-        ORDER BY order_count DESC
-        LIMIT 1
-        """
-        cursor.execute(query)
-        result = cursor.fetchone()
-
-        cursor.close()
-        connection.close()
-
-        if result:
-            return jsonify({"storeID": result['storeID'], "order_count": result['order_count']})
-        else:
-            return jsonify({"message": "No orders found"}), 404
-    except mysql.connector.Error as err:
-        return jsonify({"error": str(err)}), 500
-
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        selected_option = request.form['selection']
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            if selected_option == 'Stores':
+                cursor.execute("SELECT * FROM stores")
+                results = cursor.fetchall()
+            elif selected_option == 'Products':
+                cursor.execute("SELECT * FROM products WHERE Size='Medium'")
+                results = cursor.fetchall()
+            elif selected_option == 'Revenue':
+                cursor.execute("SELECT * FROM store_revenue")
+                results = cursor.fetchall()
+        conn.close()
+        return render_template('index.html', selection=selected_option, results=results)
+    return render_template('index.html', selection=None, results=None)
 
 if __name__ == '__main__':
     app.run(debug=True)

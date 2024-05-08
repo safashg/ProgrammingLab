@@ -10,15 +10,22 @@
         <select name="selection">
             <option value="Stores">Stores</option>
             <option value="Products">Products</option>
+            <option value="Revenue">Revenue</option>
         </select>
         <button type="submit">Submit</button>
     </form>
     {% if selection %}
         <h2>Showing: {{ selection }}</h2>
         <ul>
-            {% for item in results %}
-                <li>{{ item }}</li>
-            {% endfor %}
+            {% if selection == 'Revenue' %}
+                {% for item in results %}
+                    <li>Store ID: {{ item[0] }} - Total Revenue: ${{ '%.2f' | format(item[1]) }}</li>
+                {% endfor %}
+            {% else %}
+                {% for item in results %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            {% endif %}
         </ul>
     {% endif %}
 </body>
