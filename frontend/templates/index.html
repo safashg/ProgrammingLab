@@ -2,11 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Product and Store Viewer</title>
+    <title>Pizza</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #logo {
+            margin-right: 20px;
+            width: 150px;
+            height: auto;
+        }
+        #search {
+            margin-top: 10px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #search form {
+            display: flex;
+            align-items: center;
+        }
+        #search select,
+        #search button {
+            margin-right: 10px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome to the Product and Store Viewer</h1>
-    <form method="POST">
+    <header>
+        <div id="logo">
+           <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" width="150">
+        </div>
+    </header>
+    <h1></h1>
+    <form method="POST" id="search">
         <select name="selection">
             <option value="Stores">Stores</option>
             <option value="Products">Products</option>
@@ -14,19 +66,36 @@
         </select>
         <button type="submit">Submit</button>
     </form>
+    <h2>showing: {{ selection }}</h2>
     {% if selection %}
-        <h2>Showing: {{ selection }}</h2>
-        <ul>
-            {% if selection == 'Revenue' %}
-                {% for item in results %}
-                    <li>Store ID: {{ item[0] }} - Total Revenue: ${{ '%.2f' | format(item[1]) }}</li>
-                {% endfor %}
-            {% else %}
-                {% for item in results %}
-                    <li>{{ item }}</li>
-                {% endfor %}
-            {% endif %}
-        </ul>
+        <table>
+            <thead>
+                <tr>
+                    {% if selection == 'Revenue' %}
+                        <th>Store ID</th>
+                        <th>Total Revenue</th>
+                    {% else %}
+                        <th>Data</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if selection == 'Revenue' %}
+                    {% for item in results %}
+                        <tr>
+                            <td>{{ item[0] }}</td>
+                            <td>${{ '%.2f' | format(item[1]) }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    {% for item in results %}
+                        <tr>
+                            <td>{{ item }}</td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
     {% endif %}
 </body>
 </html>
