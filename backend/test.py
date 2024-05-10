@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request
 import pymysql
 
-app = Flask(__name__, template_folder='../frontend/templates')
+app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
 
 def get_db_connection():
     connection = pymysql.connect(
