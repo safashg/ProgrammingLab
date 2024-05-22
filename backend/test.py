@@ -1,7 +1,12 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import pymysql
+import pandas as pd
+import logging
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 def get_db_connection():
     connection = pymysql.connect(
@@ -14,23 +19,43 @@ def get_db_connection():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == 'POST':
-        selected_option = request.form['selection']
+    return render_template('index.html')
+
+@app.route('/chart')
+def chart():
+    try:
         conn = get_db_connection()
-        with conn.cursor() as cursor:
-            if selected_option == 'Stores':
-                cursor.execute("SELECT * FROM stores")
-                results = cursor.fetchall()
-            elif selected_option == 'Products':
-                cursor.execute("SELECT * FROM products WHERE Size='Medium'")
-                results = cursor.fetchall()
-            elif selected_option == 'Revenue':
-                cursor.execute("SELECT * FROM store_revenue")
-                results = cursor.fetchall()
+        query = '''
+        SELECT * FROM monthly_store_orders
+        '''
+        df = pd.read_sql(query, conn)
         conn.close()
-        return render_template('index.html', selection=selected_option, results=results)
-    return render_template('index.html', selection=None, results=None)
+
+        df['monthYear'] = pd.to_datetime(df['monthYear'], format='%Y-%m')
+        df = df.sort_values(by=['storeID', 'monthYear'])
+
+        data = df.to_dict(orient='records')
+        return jsonify(data)
+    except Exception as e:
+        logging.error(f"Error in /chart endpoint: {e}")
+        return jsonify({"error": "Error fetching chart data"}), 500
+
+@app.route('/store/<int:store_id>')
+def store_info(store_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("SELECT * FROM stores WHERE storeID = %s", (store_id,))
+        store_details = cursor.fetchone()
+        conn.close()
+
+        if store_details:
+            return jsonify(store_details)
+        else:
+            return jsonify({"error": "Store not found"}), 404
+    except Exception as e:
+        logging.error(f"Error in /store/{store_id} endpoint: {e}")
+        return jsonify({"error": "Error fetching store information"}), 500
 
 if __name__ == '__main__':
-    app.run(port=8080)
-    app.run(debug=True)
+    app.run(port=8080, debug=True)
