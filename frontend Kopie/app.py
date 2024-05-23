@@ -37,19 +37,22 @@ def pivot_charts():
         try:
             conn = get_db_connection()
             if data_type == 'pizza':
-                query = f"SELECT {x_coord}, {y_coord} FROM products"
-                df = pd.read_sql(query, conn)
-
-                chart_data = df.to_dict(orient='records')
-                logging.debug(f"Chart data: {chart_data}")
-                return jsonify(chart_data=chart_data)
+                table = 'products'
+            elif data_type == 'restaurant':
+                table = 'total_spent'
             else:
                 return jsonify({"error": "Invalid data type"}), 400
+
+            query = f"SELECT {x_coord}, {y_coord} FROM {table}"
+            df = pd.read_sql(query, conn)
+
+            chart_data = df.to_dict(orient='records')
+            logging.debug(f"Chart data: {chart_data}")
+            return jsonify(chart_data=chart_data)
         except Exception as e:
             logging.error(f"Error in /pivot_charts endpoint: {e}")
             # Instead of returning a JSON error response, redirect to an error page or render an error template
             return render_template('error.html', error_message="Error fetching chart data")
-
         finally:
             conn.close()
 
@@ -61,17 +64,18 @@ def database():
 
     try:
         conn = get_db_connection()
-        query = f"SELECT * FROM {table}"
-        with conn.cursor() as cursor:
-            cursor.execute(query)
-            data = cursor.fetchall()
+        if table in ['products', 'total_spent']:
+            query = f"SELECT * FROM {table}"
+            with conn.cursor() as cursor:
+                cursor.execute(query)
+                data = cursor.fetchall()
 
-        return render_template('database.html', table=table, data=data)
+            return render_template('database.html', table=table, data=data)
+        else:
+            return render_template('error.html', error_message="Invalid table name")
     except Exception as e:
         logging.error(f"Error in /database endpoint: {e}")
-        # Instead of returning a JSON error response, redirect to an error page or render an error template
         return render_template('error.html', error_message="Error fetching data")
-
     finally:
         conn.close()
 
