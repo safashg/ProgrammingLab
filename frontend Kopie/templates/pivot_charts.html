@@ -38,7 +38,6 @@
             margin-left: 200px;
             padding: 20px;
             width: calc(100% - 200px);
-        }
         .hidden {
             display: none;
         }
@@ -62,18 +61,19 @@
             <form class="pivot-chart-form" method="POST" action="/pivot_charts" id="pivot-chart-form">
                 <label for="data_type">Select Data Type:</label>
                 <select name="data_type" id="data_type">
-                    <option value="restaurant">Restaurant</option>
-                    <option value="pizza">Pizza</option>
+                    <option value="restaurant">restaurant</option>
+                    <option value="pizza">pizza</option>
                 </select>
                 <label for="x_coord">X Coordinate:</label>
                 <select name="x_coord" id="x_coord">
-                    <option value="price">Price</option>
-                    <option value="name">Category</option>
+                    <option value="name">category</option>
+                    <option value="storeID">storeID</option>
                 </select>
                 <label for="y_coord">Y Coordinate:</label>
                 <select name="y_coord" id="y_coord">
-                    <option value="price">Price</option>
-                    <option value="name">Category</option>
+                    <option value="price">price</option>
+                    <option value="total_spent_by_customer">total spent by customer</option>
+                    
                 </select>
                 <button type="submit">Create Chart</button>
             </form>
