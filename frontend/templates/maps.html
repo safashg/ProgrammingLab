@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maps</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        body {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        nav {
+            width: 200px;
+            background-color: #483d8b;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            position: fixed;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            margin: 10px 0;
+            padding: 10px 0;
+            width: 100%;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        nav a:hover {
+            background-color: #dda0dd;
+        }
+        main {
+            margin-left: 200px;
+            padding: 20px;
+            width: calc(100% - 200px);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/maps" id="maps-link">Maps</a>
+        <a href="/pivot_charts">Pivot Charts</a>
+        <a href="/database">Database</a>
+    </nav>
+    <main>
+        <div id="map"></div>
+    </main>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var map = L.map('map').setView([37.7749, -122.4194], 5); // Center the map (latitude, longitude)
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            fetch('/store_locations')
+                .then(response => response.json())
+                .then(data => {
+                    data.store_data.forEach(store => {
+                        L.marker([store.latitude, store.longitude])
+                            .addTo(map)
+                            .bindPopup(`<b>${store.city}, ${store.state}</b><br>Store ID: ${store.storeID}`);
+                    });
+                })
+                .catch(error => console.error('Error fetching store locations:', error));
+        });
+    </script>
+</body>
+</html>
