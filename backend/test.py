@@ -19,7 +19,11 @@ def get_db_connection():
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    return render_template('index.html', page='home')
+
+@app.route('/maps', methods=['GET'])
+def maps():
+    return render_template('maps.html', page='maps')
 
 @app.route('/pivot_charts', methods=['GET', 'POST'])
 def pivot_charts():
@@ -28,79 +32,57 @@ def pivot_charts():
         x_coord = request.form.get('x_coord')
         y_coord = request.form.get('y_coord')
 
-        conn = get_db_connection()
-        if data_type == 'restaurant':
-            query = f"SELECT {x_coord}, {y_coord} FROM products"
-        elif data_type == 'pizza':
-            query = f"SELECT {x_coord}, {y_coord} FROM pizza_profit_analysis"
-        else:
-            return jsonify({"error": "Invalid data type"}), 400
+        logging.debug(f"Received POST data: data_type={data_type}, x_coord={x_coord}, y_coord={y_coord}")
 
-        df = pd.read_sql(query, conn)
-        conn.close()
+        try:
+            conn = get_db_connection()
+            if data_type == 'pizza':
+                table = 'products'
+            elif data_type == 'restaurant':
+                table = 'total_items_sold'
+            elif data_type == 'profit':
+                table = 'pizza_profit_analysis'
+            elif data_type == 'monthly_revenue':
+                table = 'monthly_store_revenue'
+                x_coord = 'orderMonth'
+                y_coord = 'totalRevenue'
+            else:
+                return jsonify({"error": "Invalid data type"}), 400
 
-        chart_data = df.to_dict(orient='records')
-        return jsonify(chart_data=chart_data)
+            query = f"SELECT {x_coord}, {y_coord}, storeID FROM {table}" if data_type == 'monthly_revenue' else f"SELECT {x_coord}, {y_coord} FROM {table}"
+            df = pd.read_sql(query, conn)
+
+            chart_data = df.to_dict(orient='records')
+            logging.debug(f"Chart data: {chart_data}")
+            return jsonify(chart_data=chart_data)
+        except Exception as e:
+            logging.error(f"Error in /pivot_charts endpoint: {e}")
+            return render_template('error.html', error_message="Error fetching chart data")
+        finally:
+            conn.close()
 
     return render_template('pivot_charts.html')
 
-@app.route('/chart')
-def chart():
+@app.route('/database', methods=['GET'])
+def database():
+    table = request.args.get('table', 'products')
+
     try:
         conn = get_db_connection()
-        query = '''
-        SELECT * FROM monthly_store_revenue
-        '''
-        df = pd.read_sql(query, conn)
-        conn.close()
+        if table in ['products', 'total_items_sold', 'pizza_profit_analysis', 'monthly_store_revenue']:
+            query = f"SELECT * FROM {table}"
+            with conn.cursor() as cursor:
+                cursor.execute(query)
+                data = cursor.fetchall()
 
-        df['orderMonth'] = pd.to_datetime(df['orderMonth'], format='%Y-%m')
-        df = df.sort_values(by=['storeID', 'orderMonth'])
-
-        data = df.to_dict(orient='records')
-        return jsonify(data)
-    except Exception as e:
-        logging.error(f"Error in /chart endpoint: {e}")
-        return jsonify({"error": "Error fetching chart data"}), 500
-
-@app.route('/store/<int:store_id>')
-def store_info(store_id):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(pymysql.cursors.DictCursor)
-        cursor.execute("SELECT * FROM stores WHERE storeID = %s", (store_id,))
-        store_details = cursor.fetchone()
-        conn.close()
-
-        if store_details:
-            return jsonify(store_details)
+            return render_template('database.html', table=table, data=data)
         else:
-            return jsonify({"error": "Store not found"}), 404
+            return render_template('error.html', error_message="Invalid table name")
     except Exception as e:
-        logging.error(f"Error in /store/{store_id} endpoint: {e}")
-        return jsonify({"error": "Error fetching store information"}), 500
-
-@app.route('/get_chart_data/<string:chart_type>', methods=['GET'])
-def get_chart_data(chart_type):
-    try:
-        conn = get_db_connection()
-        if chart_type == 'weekly_revenue':
-            query = "SELECT * FROM weekly_store_revenue"
-        elif chart_type == 'monthly_revenue':
-            query = "SELECT * FROM monthly_store_revenue"
-        elif chart_type == 'daily_orders':
-            query = "SELECT * FROM daily_store_orders"
-        else:
-            return jsonify({"error": "Invalid chart type"}), 400
-
-        df = pd.read_sql(query, conn)
+        logging.error(f"Error in /database endpoint: {e}")
+        return render_template('error.html', error_message="Error fetching data")
+    finally:
         conn.close()
-
-        data = df.to_dict(orient='records')
-        return jsonify(data)
-    except Exception as e:
-        logging.error(f"Error in /get_chart_data/{chart_type} endpoint: {e}")
-        return jsonify({"error": "Error fetching chart data"}), 500
 
 if __name__ == '__main__':
-    app.run(port=8080, debug=True)
+    app.run(port=8081, debug=True)
