@@ -84,5 +84,19 @@ def database():
     finally:
         conn.close()
 
+@app.route('/store_locations', methods=['GET'])
+def store_locations():
+    try:
+        conn = get_db_connection()
+        query = "SELECT storeID, latitude, longitude, city, state FROM stores"
+        df = pd.read_sql(query, conn)
+        store_data = df.to_dict(orient='records')
+        return jsonify(store_data=store_data)
+    except Exception as e:
+        logging.error(f"Error in /store_locations endpoint: {e}")
+        return jsonify({"error": "Error fetching store locations"}), 500
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     app.run(port=8081, debug=True)
