@@ -42,139 +42,20 @@
         .hidden {
             display: none;
         }
-        .filter-form, .pivot-chart-form {
-            margin-bottom: 20px;
-        }
-        .filter-form select, .pivot-chart-form select {
-            margin-right: 10px;
-        }
     </style>
 </head>
 <body>
     <nav>
-        <a href="/" id="home-link">Home</a>
-        <a href="/maps" id="maps-link">Maps</a>
-        <a href="/pivot_charts" id="pivot-charts-link">Pivot Charts</a>
-        <a href="/database" id="database-link">Database</a>
+        <a href="/">Home</a>
+        <a href="/maps">Maps</a>
+        <a href="/pivot_charts">Pivot Charts</a>
+        <a href="/database">Database</a>
     </nav>
     <main>
-        <div id="home" class="content {% if page != 'home' %}hidden{% endif %}">
+        <div id="home" class="content">
             <h2>Home</h2>
-            <p>A work in progress 🍕</p>
-        </div>
-        <div id="maps" class="content {% if page != 'maps' %}hidden{% endif %}">
-            <h2>Maps</h2>
-            <p>Work in progress</p>
-        </div>
-        <div id="pivot_charts" class="content {% if page != 'pivot_charts' %}hidden{% endif %}">
-            <h2>Pivot Charts</h2>
-            <form class="pivot-chart-form" method="POST" action="/pivot_charts">
-                <label for="data_type">Select Data Type:</label>
-                <select name="data_type" id="data_type" onchange="this.form.submit()">
-                    <option value="restaurant">Restaurant</option>
-                    <option value="pizza">Pizza</option>
-                </select>
-                <label for="x_coord">X Coordinate:</label>
-                <select name="x_coord" id="x_coord">
-                    <option value="example_x1">Example X1</option>
-                    <option value="example_x2">Example X2</option>
-                </select>
-                <label for="y_coord">Y Coordinate:</label>
-                <select name="y_coord" id="y_coord">
-                    <option value="example_y1">Example Y1</option>
-                    <option value="example_y2">Example Y2</option>
-                </select>
-                <button type="submit">Create Chart</button>
-            </form>
-            <div id="chart-container">
-                <!-- Chart will be rendered here -->
-            </div>
-            <button id="switch-coordinates">Switch X and Y Coordinate</button>
-            <button id="add-chart">Add Another Chart</button>
-        </div>
-        <div id="database" class="content {% if page != 'database' %}hidden{% endif %}">
-            <h2>Database</h2>
-            <form class="filter-form" method="GET" action="/database">
-                <label for="table">Select Table:</label>
-                <select name="table" id="table" onchange="this.form.submit()">
-                    <option value="products" {% if table == 'products' %}selected{% endif %}>Products</option>
-                    <option value="customers" {% if table == 'customers' %}selected{% endif %}>Customers</option>
-                    <option value="stores" {% if table == 'stores' %}selected{% endif %}>Stores</option>
-                </select>
-            </form>
-            {% if table == 'products' %}
-                <h3>Products</h3>
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Price</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in data %}
-                            <tr>
-                                <td>{{ row[0] }}</td>
-                                <td>{{ row[1] }}</td>
-                                <td>{{ row[2] }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% elif table == 'customers' %}
-                <h3>Customers</h3>
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Latitude</th>
-                            <th>Longitude</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in data %}
-                            <tr>
-                                <td>{{ row[0] }}</td>
-                                <td>{{ row[1] }}</td>
-                                <td>{{ row[2] }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% elif table == 'stores' %}
-                <h3>Stores</h3>
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Location</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in data %}
-                            <tr>
-                                <td>{{ row[0] }}</td>
-                                <td>{{ row[1] }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% endif %}
+            <p>Work in Progress 🍕</p>
         </div>
     </main>
-    <script>
-        document.getElementById("add-chart").addEventListener("click", function() {
-            // Code to add another chart section
-        });
-
-        document.getElementById("switch-coordinates").addEventListener("click", function() {
-            // Code to switch x and y coordinates
-        });
-
-        document.getElementById("data_type").addEventListener("change", function() {
-            // Fetch and update coordinates and options based on selected data type
-        });
-    </script>
 </body>
 </html>
