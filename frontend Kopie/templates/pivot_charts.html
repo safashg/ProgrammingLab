@@ -38,11 +38,15 @@
             margin-left: 200px;
             padding: 20px;
             width: calc(100% - 200px);
+        }
         .hidden {
             display: none;
         }
         .pivot-chart-form select {
             margin-right: 10px;
+        }
+        .chart-container {
+            margin-top: 20px;
         }
     </style>
     <!-- Include Chart.js -->
@@ -61,51 +65,39 @@
             <form class="pivot-chart-form" method="POST" action="/pivot_charts" id="pivot-chart-form">
                 <label for="data_type">Select Data Type:</label>
                 <select name="data_type" id="data_type">
-                    <option value="restaurant">restaurant</option>
-                    <option value="pizza">pizza</option>
+                    <option value="restaurant">Restaurant</option>
+                    <option value="pizza">Pizza</option>
+                    <option value="profit">Profit</option>
+                    <option value="monthly_revenue">Monthly Revenue</option>
                 </select>
                 <label for="x_coord">X Coordinate:</label>
                 <select name="x_coord" id="x_coord">
-                    <option value="name">category</option>
-                    <option value="storeID">storeID</option>
+                    <option value="name">Category</option>
+                    <option value="storeID">Store ID</option>
+                    <option value="orderMonth">Order Month</option>
                 </select>
                 <label for="y_coord">Y Coordinate:</label>
                 <select name="y_coord" id="y_coord">
-                    <option value="price">price</option>
-                    <option value="total_spent_by_customer">total spent by customer</option>
-                    
+                    <option value="price">Price</option>
+                    <option value="total_items_sold_per_store">Total Items Sold Per Store</option>
+                    <option value="total_spent_by_customer">Total Spent By Customer</option>
+                    <option value="total_orders">Total Orders Per Store</option>
+                    <option value="total_revenue">Total Revenue Per Store</option>
+                    <option value="production_cost">Production Cost</option>
+                    <option value="profit">Profit</option>
+                    <option value="totalRevenue">Total Revenue</option>
+                    <option value="totalProfit">Total Profit</option>
                 </select>
                 <button type="submit">Create Chart</button>
             </form>
-            <div id="chart-container">
-                <!-- Chart will be rendered here -->
+            <div id="charts-container">
+                <!-- Chart containers will be dynamically added here -->
             </div>
             <button id="add-chart">Add Another Chart</button>
         </div>
     </main>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var xCoordSelect = document.getElementById('x_coord');
-            var yCoordSelect = document.getElementById('y_coord');
-
-            function updateYCoordOptions() {
-                var xSelected = xCoordSelect.value;
-
-
-                var yOptions = yCoordSelect.options;
-                for (var i = 0; i < yOptions.length; i++) {
-                    if (yOptions[i].value === xSelected) {
-                        yOptions[i].style.display = 'none';
-                    } else {
-                        yOptions[i].style.display = 'block';
-                    }
-                }
-            }
-
-
-            xCoordSelect.addEventListener('change', updateYCoordOptions);
-
-
             document.getElementById('pivot-chart-form').addEventListener('submit', function (event) {
                 event.preventDefault();
                 var formData = new FormData(this);
@@ -120,60 +112,107 @@
                     if (data.error) {
                         console.error(data.error);
                     } else {
-
-                        renderChart(data.chart_data);
+                        renderChart(data.chart_data, formData.get('data_type'));
                     }
                 })
                 .catch(error => console.error('Error:', error));
             });
 
-            function renderChart(chartData) {
-
-                var chartContainer = document.getElementById('chart-container');
-                while (chartContainer.firstChild) {
-                    chartContainer.removeChild(chartContainer.firstChild);
-                }
-
-
+            function renderChart(chartData, dataType) {
+                var chartContainer = document.createElement('div');
+                chartContainer.className = 'chart-container';
                 var canvas = document.createElement('canvas');
                 chartContainer.appendChild(canvas);
+                document.getElementById('charts-container').appendChild(chartContainer);
 
-                // Get context and create chart
                 var ctx = canvas.getContext('2d');
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: chartData.map(item => item[xCoordSelect.value]),
-                        datasets: [{
-                            label: yCoordSelect.value,
-                            data: chartData.map(item => item[yCoordSelect.value])
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            yAxes: [{
-                                ticks: {
+
+                if (dataType === 'monthly_revenue') {
+                    var stores = [...new Set(chartData.map(item => item.storeID))];
+                    var months = [...new Set(chartData.map(item => item.orderMonth))].sort();
+
+                    var datasets = stores.map(store => {
+                        return {
+                            label: `Store ${store}`,
+                            data: months.map(month => {
+                                var record = chartData.find(item => item.storeID === store && item.orderMonth === month);
+                                return record ? record.totalRevenue : 0;
+                            }),
+                            fill: false,
+                            borderColor: getRandomColor()
+                        };
+                    });
+
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: months,
+                            datasets: datasets
+                        },
+                        options: {
+                            scales: {
+                                y: {
                                     beginAtZero: true
                                 }
-                            }]
+                            }
                         }
-                    }
-                });
+                    });
+                } else {
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: chartData.map(item => item[Object.keys(item)[0]]),
+                            datasets: [{
+                                label: Object.keys(chartData[0])[1],
+                                data: chartData.map(item => item[Object.keys(item)[1]])
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
-
-            updateYCoordOptions();
+            function getRandomColor() {
+                var letters = '0123456789ABCDEF';
+                var color = '#';
+                for (var i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            }
 
             // Add event listener for "Add Another Chart" button
             document.getElementById('add-chart').addEventListener('click', function () {
                 var newForm = document.getElementById('pivot-chart-form').cloneNode(true);
-                newForm.querySelector('#x_coord').selectedIndex = 0;
-                newForm.querySelector('#y_coord').selectedIndex = 0;
-                document.getElementById('pivot_charts').appendChild(newForm);
-                updateYCoordOptions();
+                newForm.id = '';
+                document.getElementById('pivot_charts').insertBefore(newForm, document.getElementById('charts-container'));
+                newForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    var formData = new FormData(newForm);
+
+                    // Send POST request to server
+                    fetch('/pivot_charts', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            console.error(data.error);
+                        } else {
+                            renderChart(data.chart_data, formData.get('data_type'));
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                });
             });
         });
     </script>
 </body>
 </html>
-
