@@ -48,6 +48,12 @@
         .chart-container {
             margin-top: 20px;
         }
+        #ingredients-info {
+            margin-top: 20px;
+        }
+        #price-composition {
+            margin-top: 20px;
+        }
     </style>
     <!-- Include Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -65,35 +71,53 @@
             <form class="pivot-chart-form" method="POST" action="/pivot_charts" id="pivot-chart-form">
                 <label for="data_type">Select Data Type:</label>
                 <select name="data_type" id="data_type">
-                    <option value="restaurant">Restaurant</option>
                     <option value="pizza">Pizza</option>
+                    <option value="restaurant">Restaurant</option>
                     <option value="profit">Profit</option>
                     <option value="monthly_revenue">Monthly Revenue</option>
                 </select>
                 <label for="x_coord">X Coordinate:</label>
                 <select name="x_coord" id="x_coord">
-                    <option value="name">Category</option>
+                    <option value="Category">Category</option>
                     <option value="storeID">Store ID</option>
                     <option value="orderMonth">Order Month</option>
                 </select>
                 <label for="y_coord">Y Coordinate:</label>
                 <select name="y_coord" id="y_coord">
-                    <option value="price">Price</option>
+                    <option value="Price">Price</option>
                     <option value="total_items_sold_per_store">Total Items Sold Per Store</option>
                     <option value="total_spent_by_customer">Total Spent By Customer</option>
                     <option value="total_orders">Total Orders Per Store</option>
                     <option value="total_revenue">Total Revenue Per Store</option>
                     <option value="production_cost">Production Cost</option>
-                    <option value="profit">Profit</option>
+                    <option value="Profit">Profit</option>
                     <option value="totalRevenue">Total Revenue</option>
                     <option value="totalProfit">Total Profit</option>
                 </select>
                 <button type="submit">Create Chart</button>
             </form>
-            <div id="charts-container">
-                <!-- Chart containers will be dynamically added here -->
+            <div id="charts-container"></div>
+            <div id="ingredients-info" class="hidden">
+                <h3>Ingredients Information</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ingredient</th>
+                            <th>Amount</th>
+                            <th>Cost per Unit</th>
+                            <th>Total Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ingredients-table-body">
+                    </tbody>
+                </table>
             </div>
-            <button id="add-chart">Add Another Chart</button>
+            <div id="price-composition" class="hidden">
+                <h3>Price Composition</h3>
+                <p id="total-cost"></p>
+                <p id="total-price"></p>
+                <p id="total-profit"></p>
+            </div>
         </div>
     </main>
     <script>
@@ -127,7 +151,52 @@
 
                 var ctx = canvas.getContext('2d');
 
-                if (dataType === 'monthly_revenue') {
+                if (dataType === 'pizza') {
+                    var categoriesWithSize = chartData.map(item => `${item.Category} (${item.Size})`);
+                    var prices = chartData.map(item => item.Price);
+                    var profits = chartData.map(item => item.Profit);
+
+                    var chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: categoriesWithSize,
+                            datasets: [{
+                                label: 'Price',
+                                data: prices,
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Profit',
+                                data: profits,
+                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    stacked: true
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true
+                                }
+                            },
+                            onClick: (evt, activeElements) => {
+                                if (activeElements.length > 0) {
+                                    const index = activeElements[0].index;
+                                    const label = chart.data.labels[index];
+                                    const [category, size] = label.split(' (');
+                                    const sku = chartData[index].SKU; // Assuming SKU is available in chartData
+                                    fetchIngredientsInfo(sku, size.replace(')', ''));
+                                }
+                            }
+                        }
+                    });
+                } else if (dataType === 'monthly_revenue') {
                     var stores = [...new Set(chartData.map(item => item.storeID))];
                     var months = [...new Set(chartData.map(item => item.orderMonth))].sort();
 
@@ -176,6 +245,49 @@
                         }
                     });
                 }
+            }
+
+            function fetchIngredientsInfo(sku, size) {
+                fetch('/ingredients', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ sku: sku, size: size })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error(data.error);
+                    } else {
+                        displayIngredientsInfo(data.ingredients_data);
+                        displayPriceComposition(data.total_cost, data.price, data.profit);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+
+            function displayIngredientsInfo(ingredientsData) {
+                const ingredientsTableBody = document.getElementById('ingredients-table-body');
+                ingredientsTableBody.innerHTML = '';
+                ingredientsData.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${item.Ingredient}</td>
+                        <td>${item.amount}</td>
+                        <td>${item.cost_per_unit}</td>
+                        <td>${item.total_cost}</td>
+                    `;
+                    ingredientsTableBody.appendChild(row);
+                });
+                document.getElementById('ingredients-info').classList.remove('hidden');
+            }
+
+            function displayPriceComposition(totalCost, price, profit) {
+                document.getElementById('total-cost').innerText = `Total Cost: $${totalCost}`;
+                document.getElementById('total-price').innerText = `Total Price: $${price}`;
+                document.getElementById('total-profit').innerText = `Total Profit: $${profit}`;
+                document.getElementById('price-composition').classList.remove('hidden');
             }
 
             function getRandomColor() {
