@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maps</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.css" />
     <style>
         #map {
             height: 500px;
@@ -60,14 +61,26 @@
         <div id="map"></div>
     </main>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var map = L.map('map').setView([37.7749, -122.4194], 5); // Center the map (latitude, longitude)
+            // Define the bounds for the USA
+            var southWest = L.latLng(24.396308, -125.0),
+                northEast = L.latLng(49.384358, -66.93457);
+            var bounds = L.latLngBounds(southWest, northEast);
+
+            var map = L.map('map', {
+                center: [37.7749, -95.4194], // Center the map on the USA
+                zoom: 4,
+                maxBounds: bounds, // Set the bounds
+                maxBoundsViscosity: 1.0 // Prevent panning outside the bounds
+            });
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
+            // Fetch store locations and add markers
             fetch('/store_locations')
                 .then(response => response.json())
                 .then(data => {
@@ -78,6 +91,15 @@
                     });
                 })
                 .catch(error => console.error('Error fetching store locations:', error));
+
+            // Fetch customer locations and add heatmap
+            fetch('/customer_locations')
+                .then(response => response.json())
+                .then(data => {
+                    var heatArray = data.customer_data.map(customer => [customer.latitude, customer.longitude]);
+                    L.heatLayer(heatArray, { radius: 25 }).addTo(map);
+                })
+                .catch(error => console.error('Error fetching customer locations:', error));
         });
     </script>
 </body>
