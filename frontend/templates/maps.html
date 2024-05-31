@@ -9,7 +9,7 @@
     <style>
         #map {
             height: 500px;
-            width: 100%;
+            width: 30%;
         }
         body {
             display: flex;
@@ -59,6 +59,7 @@
     </nav>
     <main>
         <div id="map"></div>
+        <button id="backButton" class="hidden">Back to Overview</button>
     </main>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
@@ -70,32 +71,50 @@
             var bounds = L.latLngBounds(southWest, northEast);
 
             var map = L.map('map', {
-                center: [37.7749, -95.4194], // Center the map on the USA
-                zoom: 4,
-                maxBounds: bounds, // Set the bounds
-                maxBoundsViscosity: 1.0 // Prevent panning outside the bounds
+                center: [37.7749, -122.4194],
+                zoom: 5,
+                maxBounds: bounds,
+                maxBoundsViscosity: 1.0
             });
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
+            var backButton = document.getElementById('backButton');
+
             // Fetch store locations and add markers
             fetch('/store_locations')
                 .then(response => response.json())
                 .then(data => {
                     data.store_data.forEach(store => {
-                        L.marker([store.latitude, store.longitude])
+                        var marker = L.marker([store.latitude, store.longitude])
                             .addTo(map)
                             .bindPopup(`<b>${store.city}, ${store.state}</b><br>Store ID: ${store.storeID}`);
+
+                        // Add click event listener to each marker
+                        marker.on('click', function() {
+                            map.setView([store.latitude, store.longitude], 12); // Set the zoom level as desired
+                            backButton.classList.remove('hidden'); // Show the back button
+                        });
+                    });
+
+                    // Add click event listener to back button
+                    backButton.addEventListener('click', function() {
+                        map.setView([37.7749, -122.4194], 5); // Set the default view
+                        backButton.classList.add('hidden'); // Hide the back button
                     });
                 })
                 .catch(error => console.error('Error fetching store locations:', error));
 
-            // Fetch customer locations and add heatmap
+            // Fetch customer locations and add markers
             fetch('/customer_locations')
                 .then(response => response.json())
                 .then(data => {
+                    data.customer_data.forEach(customer => {
+                        L.circleMarker([customer.latitude, customer.longitude], { color: 'blue', radius: 5 }).addTo(map);
+                    });
+
                     var heatArray = data.customer_data.map(customer => [customer.latitude, customer.longitude]);
                     L.heatLayer(heatArray, { radius: 25 }).addTo(map);
                 })
