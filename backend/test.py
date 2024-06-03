@@ -2,8 +2,9 @@ from flask import Flask, render_template, request, jsonify
 import pymysql
 import pandas as pd
 import logging
+import math
 
-app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
+app = Flask(__name__)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -12,25 +13,27 @@ def get_db_connection():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='Pizzaservice123!',
+        password='Karamel2020',
         database='pizzadata'
     )
     return connection
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html', page='home')
+    return render_template('index.html')
 
 @app.route('/maps', methods=['GET'])
 def maps():
-    return render_template('maps.html', page='maps')
+    return render_template('maps.html')
 
 @app.route('/pivot_charts', methods=['GET', 'POST'])
 def pivot_charts():
     if request.method == 'POST':
         data_type = request.form.get('data_type')
+        x_coord = request.form.get('x_coord', 'default_x')
+        y_coord = request.form.get('y_coord', 'default_y')
 
-        logging.debug(f"Received POST data: data_type={data_type}")
+        logging.debug(f"Received POST data: data_type={data_type}, x_coord={x_coord}, y_coord={y_coord}")
 
         try:
             conn = get_db_connection()
@@ -94,6 +97,41 @@ def customer_locations():
     finally:
         conn.close()
 
+@app.route('/customer_locations_near_store', methods=['GET'])
+def customer_locations_near_store():
+    try:
+        conn = get_db_connection()
+        store_latitude = request.args.get('store_latitude')
+        store_longitude = request.args.get('store_longitude')
+        radius = request.args.get('radius', default=10, type=int)
+
+        # Calculate the bounding box for the given radius around the store location
+        earth_radius = 6371  # Earth radius in kilometers
+        lat_offset = (radius / earth_radius) * (180 / math.pi)
+        lng_offset = (radius / earth_radius) * (180 / math.pi) / math.cos(float(store_latitude) * math.pi / 180)
+
+        min_lat = float(store_latitude) - lat_offset
+        max_lat = float(store_latitude) + lat_offset
+        min_lng = float(store_longitude) - lng_offset
+        max_lng = float(store_longitude) + lng_offset
+
+        # Query customer locations within the bounding box
+        query = f"""
+            SELECT latitude, longitude
+            FROM customers
+            WHERE latitude BETWEEN {min_lat} AND {max_lat}
+            AND longitude BETWEEN {min_lng} AND {max_lng}
+        """
+        df = pd.read_sql(query, conn)
+
+        customer_data = df.to_dict(orient='records')
+        return jsonify(customer_data=customer_data)
+    except Exception as e:
+        logging.error(f"Error in /customer_locations_near_store endpoint: {e}")
+        return jsonify({"error": "Error fetching customer locations near store"}), 500
+    finally:
+        conn.close()
+
 @app.route('/ingredients', methods=['POST'])
 def ingredients():
     sku = request.json.get('sku')
@@ -134,4 +172,4 @@ def ingredients():
         conn.close()
 
 if __name__ == '__main__':
-    app.run(port=8081, debug=True)
+    app.run(port=8085, debug=True)
