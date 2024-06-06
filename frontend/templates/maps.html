@@ -7,10 +7,33 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.css" />
     <style>
+        #map-container {
+            position: relative;
+            display: flex;
+        }
+
         #map {
             height: 500px;
             width: 30%;
         }
+
+        #map-buttons {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            margin-left: 10px;
+        }
+
+        .map-button {
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            background-color: #ddd;
+            border: 1px solid #aaa;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
         body {
             display: flex;
             margin: 0;
@@ -74,37 +97,19 @@
         <a href="/database" id="database-link">Database</a>
     </nav>
     <main>
-        <div id="map"></div>
+        <div id="map-container">
+            <div id="map"></div>
+            <div id="map-buttons">
+                <button class="map-button">Total Items Sold Per Store</button>
+                <button class="map-button">Total Spent By Customer</button>
+                <button class="map-button">Total Orders Per Store</button>
+                <button class="map-button">Total Revenue Per Store</button>
+            </div>
+        </div>
         <button id="backButton" class="hidden">Back to Overview</button>
         <div id="pivot_charts" class="content">
             <h2>Pivot Charts</h2>
             <form class="pivot-chart-form" method="POST" action="/pivot_charts" id="pivot-chart-form">
-                <label for="data_type">Select Data Type:</label>
-                <select name="data_type" id="data_type">
-                    <option value="pizza">Pizza</option>
-                    <option value="restaurant">Restaurant</option>
-                    <option value="profit">Profit</option>
-                    <option value="monthly_revenue">Monthly Revenue</option>
-                </select>
-                <label for="x_coord">X Coordinate:</label>
-                <select name="x_coord" id="x_coord">
-                    <option value="Category">Category</option>
-                    <option value="storeID">Store ID</option>
-                    <option value="orderMonth">Order Month</option>
-                </select>
-                <label for="y_coord">Y Coordinate:</label>
-                <select name="y_coord" id="y_coord">
-                    <option value="Price">Price</option>
-                    <option value="total_items_sold_per_store">Total Items Sold Per Store</option>
-                    <option value="total_spent_by_customer">Total Spent By Customer</option>
-                    <option value="total_orders">Total Orders Per Store</option>
-                    <option value="total_revenue">Total Revenue Per Store</option>
-                    <option value="production_cost">Production Cost</option>
-                    <option value="Profit">Profit</option>
-                    <option value="totalRevenue">Total Revenue</option>
-                    <option value="totalProfit">Total Profit</option>
-                </select>
-                <button type="submit">Create Chart</button>
             </form>
             <div id="charts-container"></div>
             <div id="ingredients-info" class="hidden">
@@ -123,10 +128,6 @@
                 </table>
             </div>
             <div id="price-composition" class="hidden">
-                <h3>Price Composition</h3>
-                <p id="total-cost"></p>
-                <p id="total-price"></p>
-                <p id="total-profit"></p>
             </div>
         </div>
     </main>
@@ -151,220 +152,221 @@
             var backButton = document.getElementById('backButton');
 
             // Fetch store locations and add markers
-            fetch('/store_locations')
-                .then(response => response.json())
-                .then(data => {
-                    data.store_data.forEach(store => {
-                        var marker = L.marker([store.latitude, store.longitude])
-                            .addTo(map)
-                            .bindPopup(`<b>${store.city}, ${store.state}</b><br>Store ID: ${store.storeID}`);
+            fetch('/store_locations').then(response => response.json())
+.then(data => {
+    data.store_data.forEach(store => {
+        var marker = L.marker([store.latitude, store.longitude])
+            .addTo(map)
+            .bindPopup(`<b>${store.city}, ${store.state}</b><br>Store ID: ${store.storeID}`);
 
-                        // Add click event listener to each marker
-                        marker.on('click', function() {
-                            map.setView([store.latitude, store.longitude], 12); // Set the zoom level as desired
-                            backButton.classList.remove('hidden'); // Show the back button
-                        });
-                    });
+        // Add click event listener to each marker
+        marker.on('click', function() {
+            map.setView([store.latitude, store.longitude], 12); // Set the zoom level as desired
+            backButton.classList.remove('hidden'); // Show the back button
+        });
+    });
 
-                    // Add click event listener to back button
-                    backButton.addEventListener('click', function() {
-                        map.setView([37.7749, -122.4194], 5); // Set the default view
-                        backButton.classList.add('hidden'); // Hide the back button
-                    });
-                })
-                .catch(error => console.error('Error fetching store locations:', error));
+    // Add click event listener to back button
+    backButton.addEventListener('click', function() {
+        map.setView([37.7749, -122.4194], 5); // Set the default view
+        backButton.classList.add('hidden'); // Hide the back button
+    });
+})
+.catch(error => console.error('Error fetching store locations:', error));
 
-            // Fetch customer locations and add markers
-            fetch('/customer_locations')
-                .then(response => response.json())
-                .then(data => {
-                    data.customer_data.forEach(customer => {
-                        L.circleMarker([customer.latitude, customer.longitude], { color: 'blue', radius: 5 }).addTo(map);
-                    });
+// Fetch customer locations and add markers
+fetch('/customer_locations')
+.then(response => response.json())
+.then(data => {
+    data.customer_data.forEach(customer => {
+        L.circleMarker([customer.latitude, customer.longitude], { color: 'blue', radius: 5 }).addTo(map);
+    });
 
-                    var heatArray = data.customer_data.map(customer => [customer.latitude, customer.longitude]);
-                    L.heatLayer(heatArray, { radius: 25 }).addTo(map);
-                })
-                .catch(error => console.error('Error fetching customer locations:', error));
+    var heatArray = data.customer_data.map(customer => [customer.latitude, customer.longitude]);
+    L.heatLayer(heatArray, { radius: 25 }).addTo(map);
+})
+.catch(error => console.error('Error fetching customer locations:', error));
 
-            // Pivot Charts Initialization
-            document.getElementById('pivot-chart-form').addEventListener('submit', function (event) {
-                event.preventDefault();
-                var formData = new FormData(this);
+// Pivot Charts Initialization
+document.getElementById('pivot-chart-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var formData = new FormData(this);
 
-                // Send POST request to server
-                fetch('/pivot_charts', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        console.error(data.error);
-                    } else {
-                        renderChart(data.chart_data, formData.get('data_type'));
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-            });
+    // Send POST request to server
+    fetch('/pivot_charts', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error(data.error);
+        } else {
+            renderChart(data.chart_data, formData.get('data_type'));
+        }
+    })
+    .catch(error => console.error('Error:', error));
+});
 
-            function renderChart(chartData, dataType) {
-                var chartContainer = document.createElement('div');
-                chartContainer.className = 'chart-container';
-                var canvas = document.createElement('canvas');
-                chartContainer.appendChild(canvas);
-                document.getElementById('charts-container').appendChild(chartContainer);
+function renderChart(chartData, dataType) {
+    var chartContainer = document.createElement('div');
+    chartContainer.className = 'chart-container';
+    var canvas = document.createElement('canvas');
+    chartContainer.appendChild(canvas);
+    document.getElementById('charts-container').appendChild(chartContainer);
 
-                var ctx = canvas.getContext('2d');
+    var ctx = canvas.getContext('2d');
 
-                if (dataType === 'pizza') {
-                    var categoriesWithSize = chartData.map(item => `${item.Category} (${item.Size})`);
-                    var prices = chartData.map(item => item.Price);
-                    var profits = chartData.map(item => item.Profit);
+    if (dataType === 'pizza') {
+        var categoriesWithSize = chartData.map(item => `${item.Category} (${item.Size})`);
+        var prices = chartData.map(item => item.Price);
+        var profits = chartData.map(item => item.Profit);
 
-                    var chart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: categoriesWithSize,
-                            datasets: [{
-                                label: 'Price',
-                                data: prices,
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                borderColor: 'rgba(75, 192, 192, 1)',
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'Profit',
-                                data: profits,
-                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                                borderColor: 'rgba(153, 102, 255, 1)',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                x: {
-                                    stacked: true
-                                },
-                                y: {
-                                    stacked: true,
-                                    beginAtZero: true
-                                }
-                            },
-                            onClick: (evt, activeElements) => {
-                                if (activeElements.length > 0) {
-                                    const index = activeElements[0].index;
-                                    const label = chart.data.labels[index];
-                                    const [category, size] = label.split(' (');
-                                    const sku = chartData[index].SKU; // Assuming SKU is available in chartData
-                                    fetchIngredientsInfo(sku, size.replace(')', ''));
-                                }
-                            }
-                        }
-                    });
-                } else if (dataType === 'monthly_revenue') {
-                    var stores = [...new Set(chartData.map(item => item.storeID))];
-                    var months = [...new Set(chartData.map(item => item.orderMonth))].sort();
-
-                    var datasets = stores.map(store => {
-                        return {
-                            label: `Store ${store}`,
-                            data: months.map(month => {
-                                var record = chartData.find(item => item.storeID === store && item.orderMonth === month);
-                                return record ? record.totalRevenue : 0;
-                            }),
-                            fill: false,
-                            borderColor: getRandomColor()
-                        };
-                    });
-
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: months,
-                            datasets: datasets
-                        },
-                        options: {
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-                } else {
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: chartData.map(item => item[Object.keys(item)[0]]),
-                            datasets: [{
-                                label: Object.keys(chartData[0])[1],
-                                data: chartData.map(item => item[Object.keys(item)[1]])
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-
-            function fetchIngredientsInfo(sku, size) {
-                fetch('/ingredients', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
+        var chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: categoriesWithSize,
+                datasets: [{
+                    label: 'Price',
+                    data: prices,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Profit',
+                    data: profits,
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        stacked: true
                     },
-                    body: JSON.stringify({ sku: sku, size: size })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        console.error(data.error);
-                    } else {
-                        displayIngredientsInfo(data.ingredients_data);
-                        displayPriceComposition(data.total_cost, data.price, data.profit);
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
                     }
-                })
-                .catch(error => console.error('Error:', error));
-            }
-
-            function displayIngredientsInfo(ingredientsData) {
-                const ingredientsTableBody = document.getElementById('ingredients-table-body');
-                ingredientsTableBody.innerHTML = '';
-                ingredientsData.forEach(item => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${item.Ingredient}</td>
-                        <td>${item.amount}</td>
-                        <td>${item.cost_per_unit}</td>
-                        <td>${item.total_cost}</td>
-                    `;
-                    ingredientsTableBody.appendChild(row);
-                });
-                document.getElementById('ingredients-info').classList.remove('hidden');
-            }
-
-            function displayPriceComposition(totalCost, price, profit) {
-                document.getElementById('total-cost').innerText = `Total Cost: $${totalCost}`;
-                document.getElementById('total-price').innerText = `Total Price: $${price}`;
-                document.getElementById('total-profit').innerText = `Total Profit: $${profit}`;
-                document.getElementById('price-composition').classList.remove('hidden');
-            }
-
-            function getRandomColor() {
-                var letters = '0123456789ABCDEF';
-                var color = '#';
-                for (var i = 0; i < 6; i++) {
-                    color += letters[Math.floor(Math.random() * 16)];
+                },
+                onClick: (evt, activeElements) => {
+                    if (activeElements.length > 0) {
+                        const index = activeElements[0].index;
+                        const label = chart.data.labels[index];
+                        const [category, size] = label.split(' (');
+                        const sku = chartData[index].SKU; // Assuming SKU is available in chartData
+                        fetchIngredientsInfo(sku, size.replace(')', ''));
+                    }
                 }
-                return color;
             }
         });
-    </script>
+    } else if (dataType === 'monthly_revenue') {
+        var stores = [...new Set(chartData.map(item => item.storeID))];
+        var months = [...new Set(chartData.map(item => item.orderMonth))].sort();
+
+        var datasets = stores.map(store => {
+            return {
+                label: `Store ${store}`,
+                data: months.map(month => {
+                    var record = chartData.find(item => item.storeID === store && item.orderMonth === month);
+                    return record ? record.totalRevenue : 0;
+                }),
+                fill: false,
+                borderColor: getRandomColor()
+            };
+        });
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: datasets
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    } else {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartData.map(item => item[Object.keys(item)[0]]),
+                datasets: [{
+                    label: Object.keys(chartData[0])[1],
+                    data: chartData.map(item => item[Object.keys(item)[1]])
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+}
+
+function fetchIngredientsInfo(sku, size) {
+    fetch('/ingredients', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sku: sku, size: size })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error(data.error);
+        } else {
+            displayIngredientsInfo(data.ingredients_data);
+            displayPriceComposition(data.total_cost, data.price, data.profit);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function displayIngredientsInfo(ingredientsData) {
+    const ingredientsTableBody = document.getElementById('ingredients-table-body');
+    ingredientsTableBody.innerHTML = '';
+    ingredientsData.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.Ingredient}</td>
+            <td>${item.amount}</td>
+            <td>${item.cost_per_unit}</td>
+            <td>${item.total_cost}</td>
+        `;
+        ingredientsTableBody.appendChild(row);
+    });
+    document.getElementById('ingredients-info').classList.remove('hidden');
+}
+
+function displayPriceComposition(totalCost, price, profit) {
+    document.getElementById('total-cost').innerText = `Total Cost: $${totalCost}`;
+    document.getElementById('total-price').innerText = `Total Price: $${price}`;
+    document.getElementById('total-profit').innerText = `Total Profit: $${profit}`;
+    document.getElementById('price-composition').classList.remove('hidden');
+}
+
+function getRandomColor() {
+    var letters = '0123456789ABCDEF';
+    var color = '#';
+    for (var i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+});
+</script>
 </body>
 </html>
+
+
