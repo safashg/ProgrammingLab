@@ -7,6 +7,51 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.css" />
     <style>
+        /* Global Styles */
+        body {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        nav {
+            width: 200px;
+            background-color: #483d8b;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            position: fixed;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            margin: 10px 0;
+            padding: 10px 0;
+            width: 100%;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+
+        nav a:hover {
+            background-color: #dda0dd;
+        }
+
+        main {
+            margin-left: 200px;
+            padding: 20px;
+            width: calc(100% - 200px);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Map Styles */
         #map-container {
             position: relative;
             display: flex;
@@ -34,52 +79,15 @@
             cursor: pointer;
         }
 
-        body {
-            display: flex;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        nav {
-            width: 200px;
-            background-color: #483d8b;
-            color: #fff;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 20px;
-            position: fixed;
-        }
-        nav a {
-            color: #fff;
-            text-decoration: none;
-            margin: 10px 0;
-            padding: 10px 0;
-            width: 100%;
-            text-align: center;
-            transition: background-color 0.3s;
-        }
-        nav a:hover {
-            background-color: #dda0dd;
-        }
-        main {
-            margin-left: 200px;
-            padding: 20px;
-            width: calc(100% - 200px);
-        }
-        .hidden {
-            display: none;
-        }
-        .pivot-chart-form select {
-            margin-right: 10px;
-        }
+        /* Pivot Charts Styles */
         .chart-container {
             margin-top: 20px;
         }
+
         #ingredients-info {
             margin-top: 20px;
         }
+
         #price-composition {
             margin-top: 20px;
         }
@@ -131,6 +139,7 @@
             </div>
         </div>
     </main>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Map Initialization
@@ -152,53 +161,59 @@
             var backButton = document.getElementById('backButton');
             var mapButtons = document.getElementById('map-buttons');
             var currentStoreId = null;
+            var customerMarkers = [];
+            var storeMarkers = [];
 
-            // Fetch store locations and add markers
             fetch('/store_locations')
             .then(response => response.json())
             .then(data => {
                 data.store_data.forEach(store => {
-                    var marker = L.marker([store.latitude, store.longitude])
+                    var markerOptions = {};
+                    var marker = L.marker([store.latitude, store.longitude], markerOptions)
                         .addTo(map)
-                        .bindPopup(`<b>${store.city}, ${store.state}</b><br>Store ID: ${store.storeID}`);
+                        .bindPopup('<b>' + store.city + ', ' + store.state + '</b><br>Store ID: ' + store.storeID);
+                    storeMarkers.push(marker);
 
-                    // Add click event listener to each marker
                     marker.on('click', function() {
-                        map.setView([store.latitude, store.longitude], 12); // Set the zoom level as desired
-                        backButton.classList.remove('hidden'); // Show the back button
-                        mapButtons.classList.remove('hidden'); // Show the chart buttons
+                        map.setView([store.latitude, store.longitude], 12);
+                        backButton.classList.remove('hidden');
+                        mapButtons.classList.remove('hidden');
                         currentStoreId = store.storeID;
+
+                        customerMarkers.forEach(marker => map.removeLayer(marker));
+                        customerMarkers = [];
+
+                        fetch('/customer_locations?storeID=' + store.storeID)
+                        .then(response => response.json())
+                        .then(data => {
+                            data.customer_data.forEach(customer => {
+                                var marker = L.circleMarker([customer.latitude, customer.longitude], { color: 'blue', radius: 5 }).addTo(map);
+                                customerMarkers.push(marker);
+                            });
+
+                            var heatArray = data.customer_data.map(customer => [customer.latitude, customer.longitude]);
+                            var heatLayer = L.heatLayer(heatArray, { radius: 25 }).addTo(map);
+                            customerMarkers.push(heatLayer);
+                        })
+                        .catch(error => console.error('Error fetching customer locations:', error));
                     });
                 });
 
-                // Add click event listener to back button
                 backButton.addEventListener('click', function() {
-                    map.setView([37.7749, -122.4194], 5); // Set the default view
-                    backButton.classList.add('hidden'); // Hide the back button
-                    mapButtons.classList.add('hidden'); // Hide the chart buttons
-                    document.getElementById('charts-container').innerHTML = ''; // Clear charts
+                    map.setView([37.7749, -122.4194], 5);
+                    backButton.classList.add('hidden');
+                    mapButtons.classList.add('hidden');
+                    document.getElementById('charts-container').innerHTML = '';
                     currentStoreId = null;
+
+                    customerMarkers.forEach(marker => map.removeLayer(marker));
+                    customerMarkers = [];
                 });
             })
             .catch(error => console.error('Error fetching store locations:', error));
 
-            // Fetch customer locations and add markers
-            fetch('/customer_locations')
-            .then(response => response.json())
-            .then(data => {
-                data.customer_data.forEach(customer => {
-                    L.circleMarker([customer.latitude, customer.longitude], { color: 'blue', radius: 5 }).addTo(map);
-                });
-
-                var heatArray = data.customer_data.map(customer => [customer.latitude, customer.longitude]);
-                L.heatLayer(heatArray, { radius: 25 }).addTo(map);
-            })
-            .catch(error => console.error('Error fetching customer locations:', error));
-
             window.fetchChartData = function(endpoint) {
-                if (!currentStoreId) return;
-
-                fetch(`/${endpoint}?storeID=${currentStoreId}`)
+                fetch(`/${endpoint}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
@@ -221,10 +236,10 @@
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: chartData.map(item => item[Object.keys(item)[0]]),
+                        labels: chartData.map(item => item.storeID),
                         datasets: [{
-                            label: Object.keys(chartData[0])[1],
-                            data: chartData.map(item => item[Object.keys(item)[1]]),
+                            label: 'Total Items Sold Per Store',
+                            data: chartData.map(item => item.total_items_sold),
                             backgroundColor: 'rgba(75, 192, 192, 0.2)',
                             borderColor: 'rgba(75, 192, 192, 1)',
                             borderWidth: 1
