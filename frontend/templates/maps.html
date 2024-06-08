@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maps and Pivot Charts</title>
+    <title>Maps and Customer Analysis</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.css" />
     <style>
-        /* Global Styles */
         body {
             display: flex;
             margin: 0;
@@ -45,57 +43,34 @@
             margin-left: 200px;
             padding: 20px;
             width: calc(100% - 200px);
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        /* Map Styles */
-        #map-container {
-            position: relative;
             display: flex;
+            flex-direction: column;
+        }
+
+        #map-container {
+            display: flex;
+            width: 100%;
         }
 
         #map {
             height: 500px;
-            width: 30%;
+            width: 50%;
         }
 
-        #map-buttons {
+        #charts-container {
+            width: 50%;
+            padding-left: 20px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
-            align-items: flex-start;
-            margin-left: 10px;
         }
 
-        .map-button {
-            margin-bottom: 10px;
-            padding: 5px 10px;
-            background-color: #ddd;
-            border: 1px solid #aaa;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        /* Pivot Charts Styles */
-        .chart-container {
-            margin-top: 20px;
-        }
-
-        #ingredients-info {
-            margin-top: 20px;
-        }
-
-        #price-composition {
-            margin-top: 20px;
+        .chart {
+            margin-bottom: 20px;
         }
     </style>
     <!-- Include Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 </head>
 <body>
     <nav>
@@ -107,59 +82,25 @@
     <main>
         <div id="map-container">
             <div id="map"></div>
-            <div id="map-buttons" class="hidden">
-                <button class="map-button" onclick="fetchChartData('total_items_sold_per_store')">Total Items Sold Per Store</button>
-                <button class="map-button" onclick="fetchChartData('total_spent_by_customer')">Total Spent By Customer</button>
-                <button class="map-button" onclick="fetchChartData('total_orders_per_store')">Total Orders Per Store</button>
-                <button class="map-button" onclick="fetchChartData('total_revenue_per_store')">Total Revenue Per Store</button>
-            </div>
-        </div>
-        <button id="backButton" class="hidden">Back to Overview</button>
-        <div id="pivot_charts" class="content">
-            <h2>Pivot Charts</h2>
-            <div id="charts-container"></div>
-            <div id="ingredients-info" class="hidden">
-                <h3>Ingredients Information</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ingredient</th>
-                            <th>Amount</th>
-                            <th>Cost per Unit</th>
-                            <th>Total Cost</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ingredients-table-body"></tbody>
-                </table>
-            </div>
-            <div id="price-composition" class="hidden">
-                <p id="total-cost"></p>
-                <p id="total-price"></p>
-                <p id="total-profit"></p>
+            <div id="charts-container">
+                <div class="chart">
+                    <canvas id="topCustomersChart"></canvas>
+                </div>
+                <div class="chart">
+                    <canvas id="orderActivityChart"></canvas>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Map Initialization
-            var southWest = L.latLng(24.396308, -125.0),
-                northEast = L.latLng(49.384358, -66.93457);
-            var bounds = L.latLngBounds(southWest, northEast);
-
-            var map = L.map('map', {
-                center: [37.7749, -122.4194],
-                zoom: 5,
-                maxBounds: bounds,
-                maxBoundsViscosity: 1.0
-            });
+            var map = L.map('map').setView([37.7749, -122.4194], 5);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            var backButton = document.getElementById('backButton');
-            var mapButtons = document.getElementById('map-buttons');
             var currentStoreId = null;
             var customerMarkers = [];
             var storeMarkers = [];
@@ -168,16 +109,13 @@
             .then(response => response.json())
             .then(data => {
                 data.store_data.forEach(store => {
-                    var markerOptions = {};
-                    var marker = L.marker([store.latitude, store.longitude], markerOptions)
+                    var marker = L.marker([store.latitude, store.longitude])
                         .addTo(map)
                         .bindPopup('<b>' + store.city + ', ' + store.state + '</b><br>Store ID: ' + store.storeID);
                     storeMarkers.push(marker);
 
                     marker.on('click', function() {
                         map.setView([store.latitude, store.longitude], 12);
-                        backButton.classList.remove('hidden');
-                        mapButtons.classList.remove('hidden');
                         currentStoreId = store.storeID;
 
                         customerMarkers.forEach(marker => map.removeLayer(marker));
@@ -191,57 +129,68 @@
                                 customerMarkers.push(marker);
                             });
 
-                            var heatArray = data.customer_data.map(customer => [customer.latitude, customer.longitude]);
-                            var heatLayer = L.heatLayer(heatArray, { radius: 25 }).addTo(map);
-                            customerMarkers.push(heatLayer);
+                            fetchTopCustomersChart(store.storeID);
+                            fetchOrderActivityChart(store.storeID);
                         })
                         .catch(error => console.error('Error fetching customer locations:', error));
                     });
                 });
-
-                backButton.addEventListener('click', function() {
-                    map.setView([37.7749, -122.4194], 5);
-                    backButton.classList.add('hidden');
-                    mapButtons.classList.add('hidden');
-                    document.getElementById('charts-container').innerHTML = '';
-                    currentStoreId = null;
-
-                    customerMarkers.forEach(marker => map.removeLayer(marker));
-                    customerMarkers = [];
-                });
             })
             .catch(error => console.error('Error fetching store locations:', error));
 
-            window.fetchChartData = function(endpoint) {
-                fetch(`/${endpoint}`)
+            function fetchTopCustomersChart(storeID) {
+                fetch(`/chart_data/top_customers?storeID=${storeID}`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.error) {
-                        console.error(data.error);
-                    } else {
-                        renderChart(data);
-                    }
+                    renderBarChart('topCustomersChart', data, 'Top Customers by Total Spend');
                 })
-                .catch(error => console.error('Error fetching chart data:', error));
+                .catch(error => console.error('Error fetching top customers chart data:', error));
             }
 
-            function renderChart(chartData) {
-                var chartContainer = document.createElement('div');
-                chartContainer.className = 'chart-container';
-                var canvas = document.createElement('canvas');
-                chartContainer.appendChild(canvas);
-                document.getElementById('charts-container').appendChild(chartContainer);
+            function fetchOrderActivityChart(storeID) {
+                fetch(`/chart_data/order_activity_over_time?storeID=${storeID}&interval=week`)
+                .then(response => response.json())
+                .then(data => {
+                    renderLineChart('orderActivityChart', data, 'Order Activity Over Time (Weekly)');
+                })
+                .catch(error => console.error('Error fetching order activity chart data:', error));
+            }
 
-                var ctx = canvas.getContext('2d');
+            function renderBarChart(chartId, chartData, chartTitle) {
+                var ctx = document.getElementById(chartId).getContext('2d');
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: chartData.map(item => item.storeID),
+                        labels: chartData.labels,
                         datasets: [{
-                            label: 'Total Items Sold Per Store',
-                            data: chartData.map(item => item.total_items_sold),
+                            label: chartTitle,
+                            data: chartData.data,
                             backgroundColor: 'rgba(75, 192, 192, 0.2)',
                             borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            function renderLineChart(chartId, chartData, chartTitle) {
+                var ctx = document.getElementById(chartId).getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            label: chartTitle,
+                            data: chartData.data,
+                            backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                            borderColor: 'rgba(153, 102, 255, 1)',
                             borderWidth: 1
                         }]
                     },
