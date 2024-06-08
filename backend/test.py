@@ -4,22 +4,25 @@ import pandas as pd
 import logging
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
-# Update the get_db_connection function to use pymysql
+
 def get_db_connection():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='Pizzaservice123!',
+        password='Karamel2020',
         database='pizzadata'
     )
     return connection
 
+
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
 
 @app.route('/maps', methods=['GET'])
 def maps():
@@ -39,7 +42,25 @@ def pivot_charts():
             conn = get_db_connection()
             if data_type == 'pizza':
                 table = 'pizza_profit_analysis'
-                query = f"SELECT SKU, Name AS Category, Size, Price, Profit FROM {table}"
+                query = f"SELECT Name, Size, Price FROM {table}"
+                df = pd.read_sql(query, conn)
+
+                # Pivot-Tabelle erstellen
+                pivot_df = df.pivot(index='Name', columns='Size', values='Price').fillna(0)
+
+                chart_data = {
+                    'labels': pivot_df.index.tolist(),
+                    'datasets': []
+                }
+
+                for size in pivot_df.columns:
+                    chart_data['datasets'].append({
+                        'label': size,
+                        'data': pivot_df[size].tolist()
+                    })
+
+                logging.debug(f"Chart data: {chart_data}")
+                return jsonify(chart_data=chart_data)
             elif data_type == 'restaurant':
                 table = 'total_items_sold'
                 query = f"SELECT {x_coord}, {y_coord} FROM {table}"
@@ -55,7 +76,6 @@ def pivot_charts():
                 return jsonify({"error": "Invalid data type"}), 400
 
             df = pd.read_sql(query, conn)
-
             chart_data = df.to_dict(orient='records')
             logging.debug(f"Chart data: {chart_data}")
             return jsonify(chart_data=chart_data)
@@ -66,6 +86,7 @@ def pivot_charts():
             conn.close()
 
     return render_template('pivot_charts.html')
+
 
 @app.route('/store_locations', methods=['GET'])
 def store_locations():
@@ -85,6 +106,7 @@ def store_locations():
         logging.error(f"Error in /store_locations endpoint: {e}")
         return jsonify({"error": "Error fetching store locations"}), 500
 
+
 @app.route('/customer_locations', methods=['GET'])
 def customer_locations():
     try:
@@ -103,19 +125,18 @@ def customer_locations():
         logging.error(f"Error in /customer_locations endpoint: {e}")
         return jsonify({"error": "Error fetching customer locations"}), 500
 
+
 @app.route('/total_items_sold_per_store', methods=['GET'])
 def total_items_sold_per_store():
-    store_id = request.args.get('storeID')
     try:
         connection = get_db_connection()
         query = """
         SELECT storeID, SUM(Quantity) AS totalItemsSold
         FROM store_pizza_sales
-        WHERE storeID = %s
         GROUP BY storeID
         """
         with connection.cursor() as cursor:
-            cursor.execute(query, (store_id,))
+            cursor.execute(query)
             result = cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]
             df = pd.DataFrame(result, columns=columns)
@@ -126,7 +147,6 @@ def total_items_sold_per_store():
     except Exception as e:
         logging.error(f"Error in /total_items_sold_per_store endpoint: {e}")
         return jsonify({"error": "Error fetching total items sold data"}), 500
-
 
 
 if __name__ == '__main__':
