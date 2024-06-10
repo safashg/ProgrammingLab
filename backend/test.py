@@ -36,6 +36,9 @@ def execute_query(query, params=None):
 def index():
     return render_template('index.html')
 
+@app.route('/customer', methods=['GET'])
+def customer():
+    return render_template('customer.html')
 
 @app.route('/maps', methods=['GET'])
 def maps():
