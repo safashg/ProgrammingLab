@@ -587,7 +587,6 @@ def monthly_order_trends():
         logging.error(f"Error in /monthly_order_trends endpoint: {e}")
         return jsonify({"error": "Error fetching order trends data"}), 500
 
-
 @app.route('/unique_customers_per_store_table', methods=['GET'])
 def unique_customers_per_store_table():
     """Endpunkt zur Abfrage der Tabelle wie viele customers per store"""
@@ -605,6 +604,207 @@ def unique_customers_per_store_table():
     except Exception as e:
         logging.error(f"Error in /unique_customers_per_store_table endpoint: {e}")
         return jsonify({"error": "Error fetching unique customers per store data from table"}), 500
+
+@app.route('/category_share_per_store', methods=['GET'])
+def category_share_per_store():
+    """Endpunkt für den Anteil der Kategorien pro Store"""
+    try:
+        query = """
+            SELECT storeID, Category, NumberOfPizzasSold,
+                   ROUND(100.0 * NumberOfPizzasSold / SUM(NumberOfPizzasSold) OVER(PARTITION BY storeID), 2) AS Percentage
+            FROM PizzaSalesSummary
+            ORDER BY storeID, Category;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch category share per store data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /category_share_per_store endpoint: {e}")
+        return jsonify({"error": "Error fetching category share per store data"}), 500
+
+@app.route('/category_sales_comparison', methods=['GET'])
+def category_sales_comparison():
+    """Endpunkt für den Vergleich der Kategorie-Verkäufe zwischen Stores"""
+    try:
+        query = """
+            SELECT Category, storeID, NumberOfPizzasSold
+            FROM PizzaSalesSummary
+            ORDER BY Category, storeID;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch category sales comparison data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /category_sales_comparison endpoint: {e}")
+        return jsonify({"error": "Error fetching category sales comparison data"}), 500
+
+@app.route('/top_categories_per_store', methods=['GET'])
+def top_categories_per_store():
+    """Endpunkt für die Top-Kategorien pro Store"""
+    try:
+        query = """
+            SELECT storeID, Category, NumberOfPizzasSold
+            FROM PizzaSalesSummary
+            WHERE (storeID, NumberOfPizzasSold) IN (
+                SELECT storeID, MAX(NumberOfPizzasSold)
+                FROM PizzaSalesSummary
+                GROUP BY storeID
+            )
+            ORDER BY storeID;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch top categories per store data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /top_categories_per_store endpoint: {e}")
+        return jsonify({"error": "Error fetching top categories per store data"}), 500
+
+
+
+@app.route('/seasonal_order_analysis', methods=['GET'])
+def seasonal_order_analysis():
+    """Endpunkt für die Analyse saisonaler Bestellungen"""
+    try:
+        query = """
+            SELECT 
+                OrderDate, 
+                storeID, 
+                TotalOrders,
+                EXTRACT(MONTH FROM OrderDate) AS Month,
+                EXTRACT(DAY FROM OrderDate) AS Day
+            FROM TopOrderDates
+            ORDER BY TotalOrders DESC, OrderDate, storeID;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch seasonal order analysis data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /seasonal_order_analysis endpoint: {e}")
+        return jsonify({"error": "Error fetching seasonal order analysis data"}), 500
+
+
+@app.route('/holiday_order_analysis', methods=['GET'])
+def holiday_order_analysis():
+    """Endpunkt für die Analyse von Bestellungen an Feiertagen"""
+    try:
+        holidays = [
+            '2021-01-01', '2021-01-18', '2021-02-15', '2021-04-02', '2021-04-04', '2021-05-31', '2021-06-19',
+            '2021-07-04', '2021-09-06', '2021-10-11', '2021-11-11', '2021-11-25', '2021-12-24', '2021-12-25', '2021-12-31',
+            '2022-01-01', '2022-01-17', '2022-02-21', '2022-04-15', '2022-04-17', '2022-05-30', '2022-06-19',
+            '2022-07-04', '2022-09-05', '2022-10-10', '2022-11-11', '2022-11-24', '2022-12-24', '2022-12-25', '2022-12-31'
+        ]  # Liste der Feiertage
+
+        holidays_str = ', '.join(f"'{h}'" for h in holidays)
+
+        query = f"""
+            SELECT OrderDate, storeID, TotalOrders
+            FROM TopOrderDates
+            WHERE OrderDate IN ({holidays_str})
+            ORDER BY OrderDate, storeID;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch holiday order analysis data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /holiday_order_analysis endpoint: {e}")
+        return jsonify({"error": "Error fetching holiday order analysis data"}), 500
+
+
+
+@app.route('/avg_orders_per_hour', methods=['GET'])
+def avg_orders_per_hour():
+    """Endpunkt für die durchschnittlichen Bestellungen pro Stunde (angepasste Zeit)"""
+    try:
+        query = """
+            SELECT Hour, storeID, AvgOrdersPerHour
+            FROM AvgOrdersPerHour
+            ORDER BY storeID, Hour;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch average orders per hour data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /avg_orders_per_hour endpoint: {e}")
+        return jsonify({"error": "Error fetching average orders per hour data"}), 500
+
+
+@app.route('/avg_orders_per_hour_utc', methods=['GET'])
+def avg_orders_per_hour_utc():
+    """Endpunkt für die durchschnittlichen Bestellungen pro Stunde (UTC-Zeit)"""
+    try:
+        query = """
+            SELECT Hour, storeID, AvgOrdersPerHour
+            FROM AvgOrdersPerHourUTC
+            ORDER BY storeID, Hour;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch average orders per hour (UTC) data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /avg_orders_per_hour_utc endpoint: {e}")
+        return jsonify({"error": "Error fetching average orders per hour (UTC) data"}), 500
+
+
+@app.route('/store_sales_comparison', methods=['GET'])
+def store_sales_comparison():
+    """Endpunkt für den Verkaufsvergleich zwischen Stores"""
+    try:
+        query = """
+            SELECT ProductName, storeID, SUM(Quantity) AS TotalQuantity
+            FROM daily_store_pizza_sales
+            GROUP BY ProductName, storeID
+            ORDER BY ProductName, storeID;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch store sales comparison data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /store_sales_comparison endpoint: {e}")
+        return jsonify({"error": "Error fetching store sales comparison data"}), 500
+
+@app.route('/store_sales_comparison_weekly', methods=['GET'])
+def store_sales_comparison_weekly():
+    """Endpunkt für den wöchentlichen Verkaufsvergleich zwischen Stores"""
+    try:
+        query = """
+            SELECT yearWeek, PizzaName, storeID, SUM(Quantity) AS TotalQuantity
+            FROM weekly_store_pizza_sales
+            GROUP BY yearWeek, PizzaName, storeID
+            ORDER BY yearWeek, PizzaName, storeID;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch store sales comparison weekly data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /store_sales_comparison_weekly endpoint: {e}")
+        return jsonify({"error": "Error fetching store sales comparison weekly data"}), 500
 
 
 
@@ -727,6 +927,166 @@ def total_sales_per_category():
         logging.error(f"Error in /total_sales_per_category endpoint: {e}")
         return jsonify({"error": "Error fetching total sales per category data"}), 500
 
+
+@app.route('/weekly_sales_distribution', methods=['GET'])
+def weekly_sales_distribution():
+    """Endpunkt für die tägliche Verkaufsverteilung pro Produkt"""
+    try:
+        query = """
+            SELECT DAYOFWEEK(orderDate) AS Weekday, ProductName, SUM(Quantity) AS TotalQuantity
+            FROM daily_store_pizza_sales
+            GROUP BY Weekday, ProductName
+            ORDER BY Weekday, ProductName;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch weekly sales distribution data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /weekly_sales_distribution endpoint: {e}")
+        return jsonify({"error": "Error fetching weekly sales distribution data"}), 500
+
+@app.route('/sales_trend_by_size', methods=['GET'])
+def sales_trend_by_size():
+    """Endpunkt für Verkaufstrends nach Größe """ #vllt extra tabelle erstellen wenns zu lange dauert
+    try:
+        query = """
+            SELECT orderDate, Size, SUM(Quantity) AS TotalQuantity
+            FROM daily_store_pizza_sales_with_size
+            GROUP BY orderDate, Size
+            ORDER BY orderDate, Size;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch sales trend by size data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /sales_trend_by_size endpoint: {e}")
+        return jsonify({"error": "Error fetching sales trend by size data"}), 500
+
+@app.route('/size_popularity', methods=['GET'])
+def size_popularity():
+    """Endpunkt für die Beliebtheit von Pizzagrößen"""
+    try:
+        query = """
+            SELECT Size, SUM(Quantity) AS TotalQuantity
+            FROM daily_store_pizza_sales_with_size
+            GROUP BY Size
+            ORDER BY TotalQuantity DESC;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch size popularity data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /size_popularity endpoint: {e}")
+        return jsonify({"error": "Error fetching size popularity data"}), 500
+
+@app.route('/popular_pizza_by_week', methods=['GET'])
+def popular_pizza_by_week():
+    """Endpunkt für die beliebtesten Pizza-Sorten pro Woche"""
+    try:
+        query = """
+            SELECT yearWeek, PizzaName, SUM(Quantity) AS TotalQuantity
+            FROM weekly_store_pizza_sales
+            GROUP BY yearWeek, PizzaName
+            ORDER BY yearWeek, TotalQuantity DESC;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch popular pizza by week data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /popular_pizza_by_week endpoint: {e}")
+        return jsonify({"error": "Error fetching popular pizza by week data"}), 500
+
+
+@app.route('/total_profit_per_pizza', methods=['GET'])
+def total_profit_per_pizza():
+    """Endpunkt für den Gesamtprofit pro Pizza"""
+    try:
+        query = """
+            SELECT SKU, Name, Size, Price, production_cost, profit
+            FROM pizza_profit_analysis
+            ORDER BY profit DESC;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch total profit per pizza data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /total_profit_per_pizza endpoint: {e}")
+        return jsonify({"error": "Error fetching total profit per pizza data"}), 500
+
+@app.route('/cost_structure_per_pizza', methods=['GET'])
+def cost_structure_per_pizza():
+    """Endpunkt für die Kostenstruktur pro Pizza"""
+    try:
+        query = """
+            SELECT SKU, Name, Size, Price, production_cost, 
+                   ROUND(production_cost / Price * 100, 2) AS CostPercentage
+            FROM pizza_profit_analysis
+            ORDER BY SKU, Size;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch cost structure per pizza data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /cost_structure_per_pizza endpoint: {e}")
+        return jsonify({"error": "Error fetching cost structure per pizza data"}), 500
+
+@app.route('/margin_analysis', methods=['GET'])
+def margin_analysis():
+    """Endpunkt für die Margenanalyse pro Pizza"""
+    try:
+        query = """
+            SELECT SKU, Name, Size, Price, production_cost, 
+                   ROUND((Price - production_cost) / Price * 100, 2) AS ProfitMargin
+            FROM pizza_profit_analysis
+            ORDER BY ProfitMargin DESC;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch margin analysis data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /margin_analysis endpoint: {e}")
+        return jsonify({"error": "Error fetching margin analysis data"}), 500
+
+@app.route('/size_cost_efficiency', methods=['GET'])
+def size_cost_efficiency():
+    """Endpunkt für die Kosteneffizienz der Pizzagrößen"""
+    try:
+        query = """
+            SELECT SKU, Name, Size, Price, production_cost, 
+                   ROUND(profit / production_cost, 2) AS CostEfficiency
+            FROM pizza_profit_analysis
+            ORDER BY SKU, Size;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch size cost efficiency data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /size_cost_efficiency endpoint: {e}")
+        return jsonify({"error": "Error fetching size cost efficiency data"}), 500
 
 
 if __name__ == '__main__':
