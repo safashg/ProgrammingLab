@@ -21,16 +21,16 @@ def get_db_connection():
 def execute_query(query, params=None):
     """Hilfsfunktion zur Ausführung von SQL-Abfragen und Rückgabe als DataFrame"""
     try:
-        conn = get_db_connection()
-        if params:
-            df = pd.read_sql(query, conn, params=params)
-        else:
-            df = pd.read_sql(query, conn)
-        conn.close()
+        with get_db_connection() as conn:
+            if params:
+                df = pd.read_sql(query, conn, params=params)
+            else:
+                df = pd.read_sql(query, conn)
         return df
     except Exception as e:
         logging.error(f"Error executing query: {e}")
         return None
+
 
 
 @app.route('/', methods=['GET'])
@@ -46,65 +46,6 @@ def customer():
 @app.route('/maps', methods=['GET'])
 def maps():
     return render_template('maps.html')
-
-
-@app.route('/pivot_charts', methods=['GET', 'POST'])
-def pivot_charts():
-    if request.method == 'POST':
-        data_type = request.form.get('data_type')
-        x_coord = request.form.get('x_coord', 'default_x')
-        y_coord = request.form.get('y_coord', 'default_y')
-
-        logging.debug(f"Received POST data: data_type={data_type}, x_coord={x_coord}, y_coord={y_coord}")
-
-        try:
-            conn = get_db_connection()
-            if data_type == 'pizza':
-                table = 'pizza_profit_analysis'
-                query = f"SELECT Name, Size, Price FROM {table}"
-                df = pd.read_sql(query, conn)
-
-                # Pivot-Tabelle erstellen
-                pivot_df = df.pivot(index='Name', columns='Size', values='Price').fillna(0)
-
-                chart_data = {
-                    'labels': pivot_df.index.tolist(),
-                    'datasets': []
-                }
-
-                for size in pivot_df.columns:
-                    chart_data['datasets'].append({
-                        'label': size,
-                        'data': pivot_df[size].tolist()
-                    })
-
-                logging.debug(f"Chart data: {chart_data}")
-                return jsonify(chart_data=chart_data)
-            elif data_type == 'restaurant':
-                table = 'total_items_sold'
-                query = f"SELECT {x_coord}, {y_coord} FROM {table}"
-            elif data_type == 'profit':
-                table = 'pizza_profit_analysis'
-                query = f"SELECT {x_coord}, {y_coord} FROM {table}"
-            elif data_type == 'monthly_revenue':
-                table = 'monthly_store_revenue'
-                x_coord = 'orderMonth'
-                y_coord = 'totalRevenue'
-                query = f"SELECT {x_coord}, {y_coord}, storeID FROM {table}"
-            else:
-                return jsonify({"error": "Invalid data type"}), 400
-
-            df = pd.read_sql(query, conn)
-            chart_data = df.to_dict(orient='records')
-            logging.debug(f"Chart data: {chart_data}")
-            return jsonify(chart_data=chart_data)
-        except Exception as e:
-            logging.error(f"Error in /pivot_charts endpoint: {e}")
-            return render_template('error.html', error_message="Error fetching chart data")
-        finally:
-            conn.close()
-
-    return render_template('pivot_charts.html')
 
 
 @app.route('/store_locations', methods=['GET'])
@@ -187,7 +128,8 @@ def store_orders_by_weekday():
 def order_activity_over_time():
     """Endpunkt für Bestellaktivität über Zeiträume hinweg"""
     try:
-        interval = request.args.get('interval', 'week')  # Unterstützte Intervalle: 'day', 'week', 'month' -> ein diagramm wo der benutzer interaktiv entschiedet was er angezeigt haben möchte
+        interval = request.args.get('interval',
+                                    'week')  # Unterstützte Intervalle: 'day', 'week', 'month' -> ein diagramm wo der benutzer interaktiv entschiedet was er angezeigt haben möchte
 
         if interval == 'day':
             query = """
@@ -220,8 +162,6 @@ def order_activity_over_time():
     except Exception as e:
         logging.error(f"Error in /order_activity_over_time endpoint: {e}")
         return jsonify({"error": "Error fetching order activity data"}), 500
-
-
 
 
 @app.route('/store_sales_per_month', methods=['GET'])
@@ -413,26 +353,26 @@ def weekly_average_order_value_per_store():
         logging.error(f"Error in /weekly_average_order_value_per_store endpoint: {e}")
         return jsonify({"error": "Error fetching average order value per store"}), 500
 
-    @app.route('/weekly_order_intensity', methods=['GET'])
-    def weekly_order_intensity_heatmap():
-        # Bestellintensitätsdaten, Nützlich für Heatmaps zur Visualisierung der Bestellintensität an verschiedenen Wochen.
 
-        try:
-            query = """
+@app.route('/weekly_order_intensity', methods=['GET'])
+def weekly_order_intensity_heatmap():
+    # Bestellintensitätsdaten, Nützlich für Heatmaps zur Visualisierung der Bestellintensität an verschiedenen Wochen.
+
+    try:
+        query = """
                 SELECT storeID, weekYear, NumberOfOrders
                 FROM weekly_store_order_stats
                 ORDER BY weekYear
                 """
-            df = execute_query(query)
-            if df is None:
-                return jsonify({"error": "Failed to fetch order intensity heatmap data"}), 500
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch order intensity heatmap data"}), 500
 
-            data = df.to_dict(orient='records')
-            return jsonify(data=data)
-        except Exception as e:
-            logging.error(f"Error in /weekly_order_intensity endpoint: {e}")
-            return jsonify({"error": "Error fetching order intensity data"}), 500
-
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /weekly_order_intensity endpoint: {e}")
+        return jsonify({"error": "Error fetching order intensity data"}), 500
 
 
 @app.route('/weekly_order_trends', methods=['GET'])
@@ -455,6 +395,7 @@ def weekly_order_trends():
     except Exception as e:
         logging.error(f"Error in /weekly_order_trends endpoint: {e}")
         return jsonify({"error": "Error fetching order trends data"}), 500
+
 
 @app.route('/weekly_store_performance_benchmark', methods=['GET'])
 def weekly_store_performance_benchmark():
@@ -497,7 +438,6 @@ def monthly_order_stats():
     except Exception as e:
         logging.error(f"Error in /monthly_order_stats endpoint: {e}")
         return jsonify({"error": "Error fetching monthly order stats"}), 500
-
 
 
 @app.route('/monthly_average_order_value_per_store', methods=['GET'])
@@ -587,6 +527,7 @@ def monthly_order_trends():
         logging.error(f"Error in /monthly_order_trends endpoint: {e}")
         return jsonify({"error": "Error fetching order trends data"}), 500
 
+
 @app.route('/unique_customers_per_store_table', methods=['GET'])
 def unique_customers_per_store_table():
     """Endpunkt zur Abfrage der Tabelle wie viele customers per store"""
@@ -604,6 +545,7 @@ def unique_customers_per_store_table():
     except Exception as e:
         logging.error(f"Error in /unique_customers_per_store_table endpoint: {e}")
         return jsonify({"error": "Error fetching unique customers per store data from table"}), 500
+
 
 @app.route('/category_share_per_store', methods=['GET'])
 def category_share_per_store():
@@ -625,6 +567,7 @@ def category_share_per_store():
         logging.error(f"Error in /category_share_per_store endpoint: {e}")
         return jsonify({"error": "Error fetching category share per store data"}), 500
 
+
 @app.route('/category_sales_comparison', methods=['GET'])
 def category_sales_comparison():
     """Endpunkt für den Vergleich der Kategorie-Verkäufe zwischen Stores"""
@@ -643,6 +586,7 @@ def category_sales_comparison():
     except Exception as e:
         logging.error(f"Error in /category_sales_comparison endpoint: {e}")
         return jsonify({"error": "Error fetching category sales comparison data"}), 500
+
 
 @app.route('/top_categories_per_store', methods=['GET'])
 def top_categories_per_store():
@@ -667,7 +611,6 @@ def top_categories_per_store():
     except Exception as e:
         logging.error(f"Error in /top_categories_per_store endpoint: {e}")
         return jsonify({"error": "Error fetching top categories per store data"}), 500
-
 
 
 @app.route('/seasonal_order_analysis', methods=['GET'])
@@ -701,9 +644,11 @@ def holiday_order_analysis():
     try:
         holidays = [
             '2021-01-01', '2021-01-18', '2021-02-15', '2021-04-02', '2021-04-04', '2021-05-31', '2021-06-19',
-            '2021-07-04', '2021-09-06', '2021-10-11', '2021-11-11', '2021-11-25', '2021-12-24', '2021-12-25', '2021-12-31',
+            '2021-07-04', '2021-09-06', '2021-10-11', '2021-11-11', '2021-11-25', '2021-12-24', '2021-12-25',
+            '2021-12-31',
             '2022-01-01', '2022-01-17', '2022-02-21', '2022-04-15', '2022-04-17', '2022-05-30', '2022-06-19',
-            '2022-07-04', '2022-09-05', '2022-10-10', '2022-11-11', '2022-11-24', '2022-12-24', '2022-12-25', '2022-12-31'
+            '2022-07-04', '2022-09-05', '2022-10-10', '2022-11-11', '2022-11-24', '2022-12-24', '2022-12-25',
+            '2022-12-31'
         ]  # Liste der Feiertage
 
         holidays_str = ', '.join(f"'{h}'" for h in holidays)
@@ -723,7 +668,6 @@ def holiday_order_analysis():
     except Exception as e:
         logging.error(f"Error in /holiday_order_analysis endpoint: {e}")
         return jsonify({"error": "Error fetching holiday order analysis data"}), 500
-
 
 
 @app.route('/avg_orders_per_hour', methods=['GET'])
@@ -786,6 +730,7 @@ def store_sales_comparison():
         logging.error(f"Error in /store_sales_comparison endpoint: {e}")
         return jsonify({"error": "Error fetching store sales comparison data"}), 500
 
+
 @app.route('/store_sales_comparison_weekly', methods=['GET'])
 def store_sales_comparison_weekly():
     """Endpunkt für den wöchentlichen Verkaufsvergleich zwischen Stores"""
@@ -805,9 +750,6 @@ def store_sales_comparison_weekly():
     except Exception as e:
         logging.error(f"Error in /store_sales_comparison_weekly endpoint: {e}")
         return jsonify({"error": "Error fetching store sales comparison weekly data"}), 500
-
-
-
 
 
 # customer analyse
@@ -837,10 +779,7 @@ def top_customers():
         return jsonify({"error": "Error fetching top customers data"}), 500
 
 
-
-
-
-#product analyse
+# product analyse
 @app.route('/most_popular_products', methods=['GET'])
 def most_popular_products():
     """Endpunkt für die beliebtesten Produkte, nach name und kategorie möglich"""
@@ -859,7 +798,6 @@ def most_popular_products():
     except Exception as e:
         logging.error(f"Error in /most_popular_products endpoint: {e}")
         return jsonify({"error": "Error fetching most popular products data"}), 500
-
 
 
 @app.route('/category_order_share', methods=['GET'])
@@ -883,11 +821,12 @@ def category_order_share():
         logging.error(f"Error in /category_order_share endpoint: {e}")
         return jsonify({"error": "Error fetching category order share data"}), 500
 
-    @app.route('/product_order_share', methods=['GET'])
-    def product_order_share():
-        """Endpunkt für den Anteil jedes Produktnamens an Anzahl der gesamten Bestellungen -> Kreisdiagramm"""
-        try:
-            query = """
+
+@app.route('/product_order_share', methods=['GET'])
+def product_order_share():
+    """Endpunkt für den Anteil jedes Produktnamens an Anzahl der gesamten Bestellungen -> Kreisdiagramm"""
+    try:
+        query = """
                 SELECT 
                     ProductName, 
                     Category, 
@@ -896,15 +835,15 @@ def category_order_share():
                 FROM product_order_frequency
                 ORDER BY Percentage DESC;
             """
-            df = execute_query(query)
-            if df is None:
-                return jsonify({"error": "Failed to fetch product order share data"}), 500
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch product order share data"}), 500
 
-            data = df.to_dict(orient='records')
-            return jsonify(data=data)
-        except Exception as e:
-            logging.error(f"Error in /product_order_share endpoint: {e}")
-            return jsonify({"error": "Error fetching product order share data"}), 500
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /product_order_share endpoint: {e}")
+        return jsonify({"error": "Error fetching product order share data"}), 500
 
 
 @app.route('/total_sales_per_category', methods=['GET'])
@@ -948,9 +887,10 @@ def weekly_sales_distribution():
         logging.error(f"Error in /weekly_sales_distribution endpoint: {e}")
         return jsonify({"error": "Error fetching weekly sales distribution data"}), 500
 
+
 @app.route('/sales_trend_by_size', methods=['GET'])
 def sales_trend_by_size():
-    """Endpunkt für Verkaufstrends nach Größe """ #vllt extra tabelle erstellen wenns zu lange dauert
+    """Endpunkt für Verkaufstrends nach Größe """  # vllt extra tabelle erstellen wenns zu lange dauert
     try:
         query = """
             SELECT orderDate, Size, SUM(Quantity) AS TotalQuantity
@@ -967,6 +907,7 @@ def sales_trend_by_size():
     except Exception as e:
         logging.error(f"Error in /sales_trend_by_size endpoint: {e}")
         return jsonify({"error": "Error fetching sales trend by size data"}), 500
+
 
 @app.route('/size_popularity', methods=['GET'])
 def size_popularity():
@@ -987,6 +928,7 @@ def size_popularity():
     except Exception as e:
         logging.error(f"Error in /size_popularity endpoint: {e}")
         return jsonify({"error": "Error fetching size popularity data"}), 500
+
 
 @app.route('/popular_pizza_by_week', methods=['GET'])
 def popular_pizza_by_week():
@@ -1028,6 +970,7 @@ def total_profit_per_pizza():
         logging.error(f"Error in /total_profit_per_pizza endpoint: {e}")
         return jsonify({"error": "Error fetching total profit per pizza data"}), 500
 
+
 @app.route('/cost_structure_per_pizza', methods=['GET'])
 def cost_structure_per_pizza():
     """Endpunkt für die Kostenstruktur pro Pizza"""
@@ -1048,6 +991,7 @@ def cost_structure_per_pizza():
         logging.error(f"Error in /cost_structure_per_pizza endpoint: {e}")
         return jsonify({"error": "Error fetching cost structure per pizza data"}), 500
 
+
 @app.route('/margin_analysis', methods=['GET'])
 def margin_analysis():
     """Endpunkt für die Margenanalyse pro Pizza"""
@@ -1067,6 +1011,7 @@ def margin_analysis():
     except Exception as e:
         logging.error(f"Error in /margin_analysis endpoint: {e}")
         return jsonify({"error": "Error fetching margin analysis data"}), 500
+
 
 @app.route('/size_cost_efficiency', methods=['GET'])
 def size_cost_efficiency():
