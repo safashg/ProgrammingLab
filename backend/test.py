@@ -2,18 +2,28 @@ from flask import Flask, render_template, request, jsonify
 import pymysql
 import pandas as pd
 import logging
+from sqlalchemy import create_engine
+
+
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
 
 logging.basicConfig(level=logging.DEBUG)
+
+# Update your database connection URI as needed
+DATABASE_URI = 'mysql+pymysql://root:HossiundJazzy3@localhost/pizzadaten'
+
+# Create SQLAlchemy engine
+engine = create_engine(DATABASE_URI)
+
 
 
 def get_db_connection():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='Pizzaservice123!',
-        database='pizzadata'
+        password='HossiundJazzy3',
+        database='pizzadaten'
     )
     return connection
 
@@ -36,6 +46,135 @@ def execute_query(query, params=None):
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
+
+@app.route('/sales', methods=['GET'])
+def sales():
+    return render_template('sales.html')
+
+
+
+
+
+@app.route('/sales_data', methods=['GET'])
+def sales_data():
+    try:
+        store_id = request.args.get('storeID')
+        pizza_type = request.args.get('pizzaType')
+
+        query = """
+            SELECT orderDate, ProductName, SUM(Quantity) AS totalQuantity
+            FROM daily_store_pizza_sales
+        """
+
+        conditions = []
+        params = {}
+
+        if store_id:
+            conditions.append("storeID = %(storeID)s")
+            params['storeID'] = store_id
+
+        if pizza_type:
+            conditions.append("ProductName = %(pizzaType)s")
+            params['pizzaType'] = pizza_type
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += """
+            GROUP BY orderDate, ProductName
+            ORDER BY orderDate, ProductName;
+        """
+
+        df = pd.read_sql(query, engine, params=params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch sales data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /sales_data endpoint: {e}")
+        return jsonify({"error": "Error fetching sales data"}), 500
+
+
+@app.route('/weekly_sales_data', methods=['GET'])
+def weekly_sales_data():
+    try:
+        store_id = request.args.get('storeID')
+        pizza_type = request.args.get('pizzaType')
+
+        query = """
+            SELECT yearWeek AS orderDate, PizzaName, SUM(Quantity) AS totalQuantity
+            FROM weekly_store_pizza_sales
+        """
+
+        conditions = []
+        params = {}
+
+        if store_id:
+            conditions.append("storeID = %(storeID)s")
+            params['storeID'] = store_id
+
+        if pizza_type:
+            conditions.append("PizzaName = %(pizzaType)s")
+            params['pizzaType'] = pizza_type
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += """
+            GROUP BY yearWeek, PizzaName
+            ORDER BY yearWeek, PizzaName;
+        """
+
+        df = pd.read_sql(query, engine, params=params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch weekly sales data"}), 500
+
+        # Format yearWeek to a datetime object for correct plotting
+        df['orderDate'] = pd.to_datetime(df['orderDate'] + '0', format='%Y-%W%w')
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /weekly_sales_data endpoint: {e}")
+        return jsonify({"error": "Error fetching weekly sales data"}), 500
+
+
+
+
+
+
+
+
+@app.route('/get_stores', methods=['GET'])
+def get_stores():
+    try:
+        query = "SELECT DISTINCT storeID FROM stores"
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch store data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(stores=data)
+    except Exception as e:
+        logging.error(f"Error in /get_stores endpoint: {e}")
+        return jsonify({"error": "Error fetching store data"}), 500
+
+@app.route('/get_pizza_types', methods=['GET'])
+def get_pizza_types():
+    try:
+        query = "SELECT DISTINCT ProductName FROM daily_store_pizza_sales"
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch pizza types data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(pizzaTypes=data)
+    except Exception as e:
+        logging.error(f"Error in /get_pizza_types endpoint: {e}")
+        return jsonify({"error": "Error fetching pizza types data"}), 500
+
+
 
 
 @app.route('/customer', methods=['GET'])
@@ -1035,4 +1174,4 @@ def size_cost_efficiency():
 
 
 if __name__ == '__main__':
-    app.run(port=8085, debug=True)
+    app.run(port=8080, debug=True)
