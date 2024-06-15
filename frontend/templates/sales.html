@@ -76,12 +76,12 @@
                     if (storeID) url.searchParams.append('storeID', storeID);
                     if (pizzaType) url.searchParams.append('pizzaType', pizzaType);
 
-                    console.log("Fetching data with URL:", url.toString()); // Überprüfe die URL in der Konsole
+                    console.log("Fetching data with URL:", url.toString());
 
                     fetch(url)
                         .then(response => response.json())
                         .then(data => {
-                            console.log("Fetched data:", data); // Log the fetched data
+                            console.log("Fetched data:", data);
 
                             const traces = {};
                             data.data.forEach(item => {
@@ -97,7 +97,7 @@
                                 traces[item.ProductName].y.push(item.totalQuantity);
                             });
 
-                            console.log("Processed traces:", traces); // Log the processed traces
+                            console.log("Processed traces:", traces);
 
                             const plotData = Object.values(traces);
 
@@ -120,7 +120,7 @@
                             data.stores.forEach(store => {
                                 const option = document.createElement('option');
                                 option.value = store.storeID;
-                                option.textContent = store.storeID; // Use storeID if storeName is not available
+                                option.textContent = store.storeID;
                                 storeFilter.appendChild(option);
                             });
                         })
