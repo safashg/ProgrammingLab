@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        nav {
+            width: 200px;
+            background-color: #483d8b;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            position: fixed;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+        nav a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin: 10px 0;
+            padding: 10px 0;
+            width: 100%;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        nav a:hover {
+            background-color: #dda0dd;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            width: calc(100% - 250px);
+        }
+        .button-group {
+            margin: 20px 0;
+        }
+        .button-group button {
+            margin: 10px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #fff;
+            color: #000;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+            border: 1px solid #ddd;
+        }
+        .button-group button:hover {
+            background-color: #ddd;
+        }
+        .button-group button.active {
+            background-color: #8A2BE2;
+            color: #fff;
+        }
+        .sub-options {
+            display: none;
+            margin-top: 10px;
+        }
+        .sub-options button {
+            display: block;
+            margin: 5px 0;
+            padding: 10px;
+            width: 100%;
+            background-color: #fff;
+            color: #000;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .sub-options button:hover {
+            background-color: #ddd;
+        }
+        .sub-options button.active {
+            background-color: #8A2BE2;
+            color: #fff;
+        }
+        .chart-container {
+            margin-top: 20px;
+        }
+        #interval-select-container {
+            display: none;
+            margin-top: 10px;
+        }
+        #order-month-select-container {
+            display: none;
+            margin-top: 10px;
+        }
+        #month-filter-container {
+            display: none;
+            margin-top: 10px;
+        }
+        #year-filter-container {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" id="home-link">Home</a>
+        <a href="/orders" id="orders-link">Orders</a>
+        <a href="/customer" id="customer-link">Customer</a>
+        <a href="/categories" id="categories-link">Categories</a>
+        <a href="/products" id="products-link">Products</a>
+    </nav>
+    <div class="main-content">
+        <h3>Order Analysis</h3>
+        <div class="button-group">
+            <button id="sales-figures">Sales Figures</button>
+            <button id="order-statistics">Order Statistics</button>
+            <button id="order-activity">Order activity over different time periods</button>
+            <button id="revenue-profit">Revenue and Profit</button>
+        </div>
+        <div id="sales-figures-options" class="sub-options">
+            <button id="total-sales-per-store">Total sales figures per store</button>
+            <button id="sales-figures-per-month">Sales figures per month per store</button>
+        </div>
+        <div id="order-statistics-options" class="sub-options">
+            <button id="daily-order-statistics">Daily order statistics per store</button>
+            <button id="orders-per-weekday">Orders per weekday per store</button>
+            <button id="weekly-order-statistics">Weekly order statistics per store</button>
+            <button id="monthly-order-statistics">Monthly order statistics per store</button>
+        </div>
+        <div id="revenue-profit-options" class="sub-options">
+            <button id="revenue-and-profit-per-month">Revenue and profit per month per store</button>
+            <button id="average-order-value">Average order value per store</button>
+            <button id="average-order-performance">Average order performance between stores</button>
+            <button id="order-trends-over-time">Order trends over time periods</button>
+        </div>
+        <div class="chart-container" id="chart-container" style="display: none;">
+            <div id="interval-select-container">
+                <label for="interval-select">Select Interval:</label>
+                <select id="interval-select">
+                    <option value="day">Day</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                </select>
+            </div>
+            <div id="order-month-select-container">
+                <label for="order-month-select">Select Order Month:</label>
+                <select id="order-month-select"></select>
+            </div>
+            <div id="month-filter-container">
+                <label for="month-select">Select Month:</label>
+                <select id="month-select"></select>
+            </div>
+            <div id="year-filter-container">
+                <label for="year-select">Select Year:</label>
+                <select id="year-select"></select>
+            </div>
+            <canvas id="myChart"></canvas>
+        </div>
+    </div>
+    <script>
+        let chartInstance;    document.querySelectorAll('.button-group button').forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            document.querySelectorAll('.sub-options').forEach(opt => opt.style.display = 'none');
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+            document.getElementById('chart-container').style.display = 'none';
+            document.getElementById('interval-select-container').style.display = 'none';
+            document.getElementById('order-month-select-container').style.display = 'none';
+            document.getElementById('month-filter-container').style.display = 'none';
+            document.getElementById('year-filter-container').style.display = 'none';
+
+            const options = document.getElementById(button.id + '-options');
+            if (options) {
+                options.style.display = 'block';
+            }
+
+            if (button.id === 'order-activity') {
+                document.getElementById('interval-select-container').style.display = 'block';
+                loadChartData('/order_activity_over_time', 'Order Activity', 'Order activity over different time periods', getSelectedInterval());
+            }
+        });
+    });
+
+    document.querySelectorAll('.sub-options button').forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.sub-options button').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            document.getElementById('chart-container').style.display = 'block';
+            document.getElementById('order-month-select-container').style.display = 'none';
+            document.getElementById('month-filter-container').style.display = 'none';
+            document.getElementById('year-filter-container').style.display = 'none';
+
+            if (button.id === 'total-sales-per-store') {
+                loadChartData('/total_items_sold_per_store', 'Total Items Sold', 'Total sales figures per store');
+            } else if (button.id === 'sales-figures-per-month') {
+                document.getElementById('order-month-select-container').style.display = 'block';
+                loadOrderMonths();
+            } else if (button.id === 'daily-order-statistics') {
+                loadChartData('/daily_order_stats', 'Daily Order Statistics', 'Daily order statistics per store', null, 'line');
+            } else if (button.id === 'orders-per-weekday') {
+                loadChartData('/store_orders_by_weekday', 'Orders per Weekday', 'Orders per weekday per store', null, 'line');
+            } else if (button.id === 'weekly-order-statistics') {
+                loadChartData('/weekly_order_stats', 'Weekly Order Statistics', 'Weekly order statistics per store', null, 'line');
+            } else if (button.id === 'monthly-order-statistics') {
+                loadChartData('/monthly_order_stats', 'Monthly Order Statistics', 'Monthly order statistics per store', null, 'line');
+            } else if (button.id === 'revenue-and-profit-per-month') {
+                document.getElementById('order-month-select-container').style.display = 'block';
+                loadOrderMonths();
+            } else if (button.id === 'average-order-value') {
+                loadChartData('/daily_average_order_value_per_store', 'Average Order Value', 'Average order value per store', null, 'line', 10, 350);
+            } else if (button.id === 'average-order-performance') {
+                loadChartData('/daily_store_performance_benchmark', 'Average Order Performance', 'Average order performance between stores');
+            } else if (button.id === 'order-trends-over-time') {
+                document.getElementById('year-filter-container').style.display = 'block';
+                loadYears();
+            }
+        });
+    });
+
+    document.getElementById('interval-select').addEventListener('change', () => {
+        if (document.getElementById('order-activity').classList.contains('active')) {
+            loadChartData('/order_activity_over_time', 'Order Activity', 'Order activity over different time periods', getSelectedInterval());
+        }
+    });
+
+    document.getElementById('order-month-select').addEventListener('change', () => {
+        const selectedMonth = document.getElementById('order-month-select').value;
+        if (document.getElementById('sales-figures-per-month').classList.contains('active')) {
+            loadChartData('/store_sales_per_month', 'Total Items Sold', 'Sales figures per month per store', selectedMonth);
+        } else if (document.getElementById('revenue-and-profit-per-month').classList.contains('active')) {
+            loadChartData('/store_revenue_and_profit_per_month', 'Revenue and Profit', 'Revenue and profit per month per store', selectedMonth);
+        }
+    });
+
+    document.getElementById('year-select').addEventListener('change', () => {
+        const selectedYear = document.getElementById('year-select').value;
+        if (document.getElementById('order-trends-over-time').classList.contains('active')) {
+            loadChartData('/daily_order_trends', 'Order Trends', 'Order trends over time periods', selectedYear);
+        }
+    });
+
+    function getSelectedInterval() {
+        return document.getElementById('interval-select').value;
+    }
+
+    function loadOrderMonths() {
+        fetch('/order_month')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('order-month-select');
+                select.innerHTML = ''; // Clear existing options
+                data.forEach(month => {
+                    const option = document.createElement('option');
+                    option.value = month.orderMonth;
+                    option.text = month.orderMonth;
+                    select.appendChild(option);
+                });
+                if (data.length > 0) {
+                    select.value = data[0].orderMonth;
+                    const activeButton = document.querySelector('.sub-options button.active');
+                    if (activeButton && activeButton.id === 'sales-figures-per-month') {
+                        loadChartData('/store_sales_per_month', 'Total Items Sold', 'Sales figures per month per store', data[0].orderMonth);
+                    } else if (activeButton && activeButton.id === 'revenue-and-profit-per-month') {
+                        loadChartData('/store_revenue_and_profit_per_month', 'Revenue and Profit', 'Revenue and profit per month per store', data[0].orderMonth);
+                    }
+                }
+            })
+            .catch(error => console.error('Error loading order months:', error));
+    }
+
+    function loadYears() {
+        fetch('/only_years')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('year-select');
+                select.innerHTML = ''; // Clear existing options
+                data.only_years.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year.period;
+                    option.text = year.period;
+                    select.appendChild(option);
+                });
+                if (data.only_years.length > 0) {
+                    select.value = data.only_years[0].period;
+                    const activeButton = document.querySelector('.sub-options button.active');
+                    if (activeButton && activeButton.id === 'order-trends-over-time') {
+                        loadChartData('/daily_order_trends', 'Order Trends', 'Order trends over time periods', data.only_years[0].period);
+                    }
+                }
+            })
+            .catch(error => console.error('Error loading years:', error));
+    }
+
+    function loadChartData(url, label, title, param = null, type = 'bar', stepSize = null, minY = 0, maxY = null) {
+        let queryUrl = url;
+        if (param) {
+            if (url === '/daily_order_trends') {
+                queryUrl += `?orderYear=${param}`;
+            } else {
+                queryUrl += `?orderMonth=${param}`;
+            }
+        }
+
+        fetch(queryUrl)
+            .then(response => response.json())
+            .then(data => {
+                let labels = [], values = [];
+
+                if (url === '/total_items_sold_per_store') {
+                    labels = data.total_items_data.map(item => item.storeID);
+                    values = data.total_items_data.map(item => item.totalItemsSold);
+                } else if (url === '/store_sales_per_month') {
+                    labels = data.store_monthly_sales_data.map(item => item.storeID);
+                    values = data.store_monthly_sales_data.map(item => item.totalItemsSold);
+                } else if (url === '/daily_order_stats') {
+                    labels = data.data.map(item => item.orderDate);
+                    values = data.data.map(item => item.NumberOfOrders);
+                } else if (url === '/store_orders_by_weekday') {
+                    labels = data.data.map(item => `${item.storeID} (${item.Weekday})`);
+                    values = data.data.map(item => item.totalOrders);
+                } else if (url === '/weekly_order_stats') {
+                    labels = data.data.map(item => item.weekYear);
+                    values = data.data.map(item => item.NumberOfOrders);
+                } else if (url === '/monthly_order_stats') {
+                    labels = data.data.map(item => item.monthYear);
+                    values = data.data.map(item => item.NumberOfOrders);
+                } else if (url === '/store_revenue_and_profit_per_month') {
+                    labels = data.store_revenue_profit_data.map(item => item.storeID);
+                    values = data.store_revenue_profit_data.map(item => item.totalRevenue);
+                } else if (url === '/daily_average_order_value_per_store') {
+                    labels = data.data.map(item => item.storeID);
+                    values = data.data.map(item => item.avgOrderValue);
+                } else if (url === '/daily_store_performance_benchmark') {
+                    labels = data.data.map(item => item.storeID);
+                    values = data.data.map(item => item.avgNumberOfOrders);
+                } else if (url === '/daily_order_trends') {
+                    labels = data.data.map(item => item.orderDate);
+                    values = data.data.map(item => item.totalOrders);
+                } else if (url === '/order_activity_over_time') {
+                    labels = data.data.map(item => item.period);
+                    values = data.data.map(item => item.order_count);
+                }
+
+                const ctx = document.getElementById('myChart').getContext('2d');
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                chartInstance = new Chart(ctx, {
+                    type: type,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: label,
+                            data: values,
+                            backgroundColor: 'rgba(128, 0, 128, 0.2)',
+                            borderColor: 'rgba(128, 0, 128, 1)',
+                            borderWidth: 1,
+                            fill: type === 'line' ? true : false
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAt: minY,
+                                ticks: {
+                                    stepSize: stepSize,
+                                    max: maxY
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                document.getElementById('chart-container').style.display = 'block';
+            })
+            .catch(error => console.error('Error loading chart data:', error));
+    }
+</script>
+</body>
+</html>

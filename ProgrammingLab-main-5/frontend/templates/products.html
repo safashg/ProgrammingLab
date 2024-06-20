@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        nav {
+            width: 200px;
+            background-color: #483d8b;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            position: fixed;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+        nav a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin: 10px 0;
+            padding: 10px 0;
+            width: 100%;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        nav a:hover {
+            background-color: #dda0dd;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            flex-grow: 1;
+        }
+        .button-group {
+            margin: 20px 0;
+        }
+        .button-group button {
+            margin: 10px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #fff;
+            color: #000;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+            border: 1px solid #ddd;
+        }
+        .button-group button:hover {
+            background-color: #ddd;
+        }
+        .button-group button.active {
+            background-color: #8A2BE2;
+            color: #fff;
+        }
+        .sub-options {
+            display: none;
+            margin-top: 10px;
+        }
+        .sub-options button {
+            display: block;
+            margin: 5px 0;
+            padding: 10px;
+            width: 100%;
+            background-color: #fff;
+            color: #000;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .sub-options button:hover {
+            background-color: #ddd;
+        }
+        .sub-options button.active {
+            background-color: #8A2BE2;
+            color: #fff;
+        }
+        .chart-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #week-select-container {
+            display: none;
+            margin-top: 10px;
+        }
+        .small-chart {
+            max-width: 600px;
+            max-height: 600px;
+            width: 100%;
+            height: auto;
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" id="home-link">Home</a>
+        <a href="/orders" id="orders-link">Orders</a>
+        <a href="/customer" id="customer-link">Customer</a>
+        <a href="/categories" id="categories-link">Categories</a>
+        <a href="/products" id="products-link">Products</a>
+    </nav>
+    <div class="main-content">
+        <h3>Product Analysis</h3>
+        <div class="button-group">
+            <button id="popularity">Popularity</button>
+            <button id="sales-distribution">Sales Distribution</button>
+            <button id="orders">Orders</button>
+            <button id="financial-insights">Financial Insights</button>
+        </div>
+        <div id="popularity-options" class="sub-options">
+            <button id="most-popular-products">Most Popular Products</button>
+            <button id="most-popular-pizza-types-per-week">Most Popular Pizza Types per Week</button>
+            <button id="popularity-of-pizza-sizes">Popularity of Pizza Sizes</button>
+        </div>
+        <div id="sales-distribution-options" class="sub-options">
+            <button id="weekly-sales-distribution-per-product">Weekly Sales Distribution per Product</button>
+            <button id="sales-trends-by-size">Sales Trends by Size</button>
+        </div>
+        <div id="orders-options" class="sub-options">
+            <button id="category-share-of-total-orders">Category Share of Total Orders</button>
+            <button id="product-share-of-total-orders">Product Share of Total Orders</button>
+        </div>
+        <div id="financial-insights-options" class="sub-options">
+            <button id="total-profit-per-pizza">Total Profit per Pizza</button>
+            <button id="cost-structure-per-pizza">Cost Structure per Pizza</button>
+            <button id="margin-analysis-per-pizza">Margin Analysis per Pizza</button>
+            <button id="cost-efficiency-of-pizza-sizes">Cost Efficiency of Pizza Sizes</button>
+        </div>
+        <div id="week-select-container">
+            <label for="week-select">Select Week:</label>
+            <select id="week-select"></select>
+        </div>
+        <div id="date-select-container" style="display: none;">
+            <label for="date-select">Select Date:</label>
+            <select id="date-select"></select>
+        </div>
+        <div class="chart-container" id="chart-container" style="display: none;">
+            <canvas id="myChart" class="small-chart"></canvas>
+        </div>
+    </div>
+    <script>
+        let chartInstance;
+        const customColors = ['#E6E6FA', '#D8BFD8', '#DDA0DD', '#DA70D6', '#BA55D3', '#9932CC', '#9400D3', '#8A2BE2', '#6A5ACD'];
+
+        document.querySelectorAll('.button-group button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                document.querySelectorAll('.sub-options').forEach(opt => opt.style.display = 'none');
+                if (chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+                document.getElementById('chart-container').style.display = 'none';
+                document.getElementById('week-select-container').style.display = 'none';
+                document.getElementById('date-select-container').style.display = 'none';
+                const options = document.getElementById(button.id + '-options');
+                if (options) {
+                    options.style.display = 'block';
+                }
+            });
+        });
+
+        document.querySelectorAll('.sub-options button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.sub-options button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById('chart-container').style.display = 'block';
+                document.getElementById('week-select-container').style.display = 'none'; // Hide week select container by default
+
+                if (button.id === 'most-popular-products') {
+                    loadChartData('/most_popular_products', 'Most Popular Products', 'Most Popular Products', 'bar', '#D8BFD8');
+                } else if (button.id === 'most-popular-pizza-types-per-week') {
+                    loadYearWeeks();
+                } else if (button.id === 'popularity-of-pizza-sizes') {
+                    loadChartData('/size_popularity', 'Popularity of Pizza Sizes', 'Popularity of Pizza Sizes', 'pie', null, true);
+                } else if (button.id === 'weekly-sales-distribution-per-product') {
+                    loadWeeklySalesDistributionChartData('/weekly_sales_distribution', 'Weekly Sales Distribution per Product', 'Weekly Sales Distribution per Product', 'bar');
+                } else if (button.id === 'sales-trends-by-size') {
+                    loadOrderDates();
+                } else if (button.id === 'category-share-of-total-orders') {
+                    loadCategoryOrderShareChartData('/category_order_share', 'Category Share of Total Orders', 'Category Share of Total Orders', 'pie', true);
+                } else if (button.id === 'product-share-of-total-orders') {
+                    loadProductOrderShareChartData('/product_order_share', 'Product Share of Total Orders', 'Product Share of Total Orders', 'pie', true);
+                } else if (button.id === 'total-profit-per-pizza') {
+                    loadTotalProfitPerPizzaChartData('/total_profit_per_pizza', 'Total Profit per Pizza', 'Total Profit per Pizza', 'bar');
+                } else if (button.id === 'cost-structure-per-pizza') {
+                    loadCostStructurePerPizzaChartData('/cost_structure_per_pizza', 'Cost Structure per Pizza', 'Cost Structure per Pizza', 'bar');
+                } else if (button.id === 'margin-analysis-per-pizza') {
+                    loadMarginAnalysisChartData('/margin_analysis', 'Margin Analysis per Pizza', 'Margin Analysis per Pizza', 'bar');
+                } else if (button.id === 'cost-efficiency-of-pizza-sizes') {
+                    loadCostEfficiencyPerPizzaChartData('/size_cost_efficiency', 'Cost Efficiency of Pizza Sizes', 'Cost Efficiency of Pizza Sizes', 'bar');
+                }
+            });
+        });
+
+        function loadYearWeeks() {
+            fetch('/popular_pizza_by_week_only_weeks')
+                .then(response => response.json())
+                .then(data => {
+                    const weekSelect = document.getElementById('week-select');
+                    weekSelect.innerHTML = ''; // Clear the dropdown
+                    data.data.forEach(week => {
+                        const option = document.createElement('option');
+                        option.value = week.yearWeek;
+                        option.text = week.yearWeek;
+                        weekSelect.appendChild(option);
+                    });
+
+                    // Add event listener to update chart on selection change
+                    weekSelect.addEventListener('change', () => {
+                        loadPopularPizzaByWeekChartData('/popular_pizza_by_week', weekSelect.value, '#D8BFD8');
+                    });
+
+                    // Load the chart with the first week by default
+                    if (data.data.length > 0) {
+                        loadPopularPizzaByWeekChartData('/popular_pizza_by_week', data.data[0].yearWeek, '#D8BFD8');
+                    }
+
+                    document.getElementById('week-select-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading week data:', error));
+        }
+
+        function loadPopularPizzaByWeekChartData(url, yearWeek, color) {
+            fetch(`${url}?yearWeek=${yearWeek}`)
+                .then(response => response.json())
+                .then(data => {
+                    let labels = [];
+                    let values = [];
+
+                    data.data.forEach(item => {
+                        labels.push(item.PizzaName);
+                        values.push(item.TotalQuantity);
+                    });
+
+                    const canvas = document.getElementById('myChart');
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Total Quantity',
+                                data: values,
+                                backgroundColor: color,
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `Most Popular Pizza Types in ${yearWeek}`
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.label}: ${context.raw}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadChartData(url, label, title, chartType, color, isPie = false) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    let labels = [];
+                    let values = [];
+
+                    if (url === '/size_popularity') {
+                        const order = ['Small', 'Medium', 'Large', 'Extra Large'];
+                        const tempData = {};
+
+                        data.data.forEach(item => {
+                            tempData[item.Size] = item.TotalQuantity;
+                        });
+
+                        order.forEach(size => {
+                            labels.push(size);
+                            values.push(tempData[size] || 0);
+                        });
+                    } else {
+                        labels = data.data.map(item => item.ProductName || item.yearWeek || item.PizzaName || item.Size);
+                        values = data.data.map(item => item.Frequency || item.TotalQuantity);
+                    }
+
+                    const canvas = document.getElementById('myChart');
+                    if (isPie) {
+                        canvas.classList.add('small-chart');
+                    } else {
+                        canvas.classList.remove('small-chart');
+                    }
+
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: label,
+                                data: values,
+                                backgroundColor: isPie ? customColors : color,
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            scales: chartType === 'pie' ? {} : {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            if (chartType === 'pie') {
+                                                const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                                const percentage = ((context.raw / total) * 100).toFixed(2);
+                                                return `${context.label}: ${context.raw} (${percentage}%)`;
+                                            } else {
+                                                return `${context.dataset.label}: ${context.parsed.y}`;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadOrderDates() {
+            fetch('/sales_trend_by_size_only_date')
+                .then(response => response.json())
+                .then(data => {
+                    const dateSelect = document.getElementById('date-select');
+                    dateSelect.innerHTML = ''; // Clear the dropdown
+                    data.data.forEach(orderDate => {
+                        const option = document.createElement('option');
+                        option.value = orderDate;
+                        option.text = orderDate;
+                        dateSelect.appendChild(option);
+                    });
+
+                    // Add event listener to update chart on selection change
+                    dateSelect.addEventListener('change', () => {
+                        loadSalesTrendBySizeChartData('/sales_trend_by_size', dateSelect.value, '#D8BFD8');
+                    });
+
+                    // Load the chart with the first orderDate by default
+                    if (data.data.length > 0) {
+                        loadSalesTrendBySizeChartData('/sales_trend_by_size', data.data[0], '#D8BFD8');
+                    }
+
+                    document.getElementById('date-select-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading order dates:', error));
+        }
+
+        function loadSalesTrendBySizeChartData(url, orderDate, color) {
+            console.log(`Fetching sales trend data for date: ${orderDate}`);
+            fetch(`${url}?orderDate=${orderDate}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Data received:', data);
+                    const filteredData = data.data.filter(item => item.orderDate === orderDate);
+                    let labels = filteredData.map(item => item.Size);
+                    let values = filteredData.map(item => item.TotalQuantity);
+
+                    const canvas = document.getElementById('myChart');
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Total Quantity',
+                                data: values,
+                                backgroundColor: color,
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `Sales Trends by Size on ${orderDate}`
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadWeeklySalesDistributionChartData(url, label, title, chartType) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    const products = [...new Set(data.data.map(item => item.ProductName))];
+                    let datasets = products.map((product, index) => ({
+                        label: product,
+                        data: new Array(7).fill(0),
+                        backgroundColor: customColors[index % customColors.length],
+                        borderWidth: 0 // No border
+                    }));
+
+                    data.data.forEach(item => {
+                        const weekdayIndex = item.Weekday - 1;
+                        const productIndex = products.indexOf(item.ProductName);
+                        datasets[productIndex].data[weekdayIndex] = item.TotalQuantity;
+                    });
+
+                    createChart(weekdays, datasets, title, 'bar');
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadProductOrderShareChartData(url, label, title, chartType) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const labels = data.data.map(item => item.ProductName);
+                    const values = data.data.map(item => item.Frequency);
+                    const percentages = data.data.map(item => item.Percentage);
+
+                    const canvas = document.getElementById('myChart');
+                    canvas.classList.add('small-chart');
+
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: label,
+                                data: values,
+                                backgroundColor: customColors,
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                            const percentage = percentages[context.dataIndex];
+                                            return `${context.label}: ${context.raw} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadCategoryOrderShareChartData(url, label, title, chartType) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const labels = data.data.map(item => item.Category);
+                    const values = data.data.map(item => item.TotalFrequency);
+                    const percentages = data.data.map(item => item.Percentage);
+
+                    const canvas = document.getElementById('myChart');
+                    canvas.classList.add('small-chart');
+
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: label,
+                                data: values,
+                                backgroundColor: customColors,
+                                borderWidth: 0 // No border
+                            }]
+                        },
+                        options: {
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                            const percentage = percentages[context.dataIndex];
+                                            return `${context.label}: ${context.raw} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadTotalProfitPerPizzaChartData(url, label, title, chartType) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const pizzas = [...new Set(data.data.map(item => item.Name))];
+                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const datasets = sizes.map((size, index) => {
+                        return {
+                            label: size,
+                            data: pizzas.map(pizza => {
+                                const item = data.data.find(d => d.Name === pizza && d.Size === size);
+                                return item ? item.profit : 0;
+                            }),
+                            backgroundColor: customColors[index % customColors.length],
+                            borderWidth: 0 // No border
+                        };
+                    });
+
+                    const canvas = document.getElementById('myChart');
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: pizzas,
+                            datasets: datasets
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    stacked: true
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadCostStructurePerPizzaChartData(url, label, title, chartType) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const pizzas = [...new Set(data.data.map(item => item.Name))];
+                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const datasets = sizes.map((size, index) => {
+                        return {
+                            label: size,
+                            data: pizzas.map(pizza => {
+                                const item = data.data.find(d => d.Name === pizza && d.Size === size);
+                                return item ? item.CostPercentage : 0;
+                            }),
+                            backgroundColor: customColors[index % customColors.length],
+                            borderWidth: 0 // No border
+                        };
+                    });
+
+                    const canvas = document.getElementById('myChart');
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: pizzas,
+                            datasets: datasets
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    stacked: true
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw}%`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadMarginAnalysisChartData(url, label, title, chartType) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const pizzas = [...new Set(data.data.map(item => item.Name))];
+                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const datasets = sizes.map((size, index) => {
+                        return {
+                            label: size,
+                            data: pizzas.map(pizza => {
+                                const item = data.data.find(d => d.Name === pizza && d.Size === size);
+                                return item ? item.ProfitMargin : 0;
+                            }),
+                            backgroundColor: customColors[index % customColors.length],
+                            borderWidth: 0 // No border
+                        };
+                    });
+
+                    const canvas = document.getElementById('myChart');
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: pizzas,
+                            datasets: datasets
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    stacked: true
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw}%`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function loadCostEfficiencyPerPizzaChartData(url, label, title, chartType) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const pizzas = [...new Set(data.data.map(item => item.Name))];
+                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const datasets = sizes.map((size, index) => {
+                        return {
+                            label: size,
+                            data: pizzas.map(pizza => {
+                                const item = data.data.find(d => d.Name === pizza && d.Size === size);
+                                return item ? item.CostEfficiency : 0;
+                            }),
+                            backgroundColor: customColors[index % customColors.length],
+                            borderWidth: 0 // No border
+                        };
+                    });
+
+                    const canvas = document.getElementById('myChart');
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: pizzas,
+                            datasets: datasets
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    stacked: true
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+
+        function createChart(labels, datasets, title, chartType) {
+            const canvas = document.getElementById('myChart');
+            const ctx = canvas.getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    scales: chartType === 'pie' ? {} : {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: title
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (chartType === 'pie') {
+                                        const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                        const percentage = ((context.raw / total) * 100).toFixed(2);
+                                        return `${context.label}: ${context.raw} (${percentage}%)`;
+                                    } else {
+                                        return `${context.dataset.label}: ${context.parsed.y}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('chart-container').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

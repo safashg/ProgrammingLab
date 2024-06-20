@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categories</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        nav {
+            width: 200px;
+            background-color: #483d8b;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-top: 20px;
+            position: fixed;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+        nav a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin: 10px 0;
+            padding: 10px 0;
+            width: 100%;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        nav a:hover {
+            background-color: #dda0dd;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            flex-grow: 1;
+        }
+        .button-group {
+            margin: 20px 0;
+        }
+        .button-group button {
+            margin: 10px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #fff;
+            color: #000;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+            border: 1px solid #ddd;
+        }
+        .button-group button:hover {
+            background-color: #ddd;
+        }
+        .button-group button.active {
+            background-color: #8A2BE2;
+            color: #fff;
+        }
+        .sub-options {
+            display: none;
+            margin-top: 10px;
+        }
+        .sub-options button {
+            display: block;
+            margin: 5px 0;
+            padding: 10px;
+            width: 100%;
+            background-color: #fff;
+            color: #000;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .sub-options button:hover {
+            background-color: #ddd;
+        }
+        .sub-options button.active {
+            background-color: #8A2BE2;
+            color: #fff;
+        }
+        .chart-container {
+            margin-top: 20px;
+        }
+        #chart-container {
+            width: 100%;
+            height: 500px;
+        }
+        #myChart {
+            width: 100%;
+            height: 100%;
+        }
+        #year-select-container, #store-select-container {
+            display: none;
+            margin-top: 10px;
+        }
+        #interval-select-container {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" id="home-link">Home</a>
+        <a href="/orders" id="orders-link">Orders</a>
+        <a href="/customer" id="customer-link">Customer</a>
+        <a href="/categories" id="categories-link">Categories</a>
+        <a href="/products" id="products-link">Products</a>
+    </nav>
+    <div class="main-content">
+        <h3>Category Analysis</h3>
+        <div class="button-group">
+            <button id="categories">Categories</button>
+            <button id="seasonal-analysis">Seasonal and holiday analysis</button>
+        </div>
+        <div id="categories-options" class="sub-options">
+            <button id="category-share">Share of categories per store</button>
+            <button id="category-comparison">Comparison of category sales between stores</button>
+            <button id="top-categories">Top categories per store</button>
+            <button id="total-sales-category">Total sales per category</button>
+        </div>
+        <div id="seasonal-analysis-options" class="sub-options">
+            <button id="seasonal-orders">Analysis of seasonal orders</button>
+            <button id="holiday-orders">Analysis of orders on holidays</button>
+        </div>
+        <div class="chart-container" id="chart-container" style="display: none;">
+            <div id="year-select-container">
+                <label for="year-select">Select Year:</label>
+                <select id="year-select">
+                    <option value="2020">2020</option>
+                    <option value="2021">2021</option>
+                    <option value="2022">2022</option>
+                </select>
+            </div>
+            <div id="interval-select-container">
+                <label for="interval-select">Select Interval:</label>
+                <select id="interval-select">
+                    <option value="day">Day</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                </select>
+            </div>
+            <div id="store-select-container">
+                <label for="store-select">Select Store:</label>
+                <select id="store-select"></select>
+            </div>
+            <canvas id="myChart"></canvas>
+        </div>
+    </div>
+    <script>
+        let chartInstance;
+
+        document.querySelectorAll('.button-group button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Deactivate all main buttons and hide all sub-options
+                document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                document.querySelectorAll('.sub-options').forEach(opt => opt.style.display = 'none');
+                // Hide and destroy the previous chart
+                if (chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+                document.getElementById('chart-container').style.display = 'none';
+                document.getElementById('year-select-container').style.display = 'none';
+                document.getElementById('interval-select-container').style.display = 'none';
+                document.getElementById('store-select-container').style.display = 'none';
+
+                // Show the sub-options for the clicked main button
+                const options = document.getElementById(button.id + '-options');
+                if (options) {
+                    options.style.display = 'block';
+                }
+
+                // Handle special case for order activity
+                if (button.id === 'order-activity') {
+                    document.getElementById('interval-select-container').style.display = 'block';
+                    loadChartData('/order_activity_over_time', 'Order Activity', 'Order activity over different time periods', getSelectedInterval());
+                }
+            });
+        });
+
+        document.querySelectorAll('.sub-options button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.sub-options button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById('chart-container').style.display = 'block';
+
+                if (button.id === 'category-share') {
+                    loadChartData('/category_order_share', 'Category Share', 'Share of categories');
+                } else if (button.id === 'category-comparison') {
+                    loadChartData('/category_sales_comparison', 'Category Sales Comparison', 'Comparison of category sales between stores', null, 'bar', true);
+                } else if (button.id === 'top-categories') {
+                    loadChartData('/top_categories_per_store', 'Top Categories', 'Top categories per store', null, 'pie', false);
+                } else if (button.id === 'seasonal-orders') {
+                    loadChartData('/seasonal_order_analysis', 'Seasonal Orders', 'Analysis of seasonal orders');
+                } else if (button.id === 'holiday-orders') {
+                    loadChartData('/holiday_order_analysis', 'Holiday Orders', 'Analysis of orders on holidays');
+                } else if (button.id === 'total-sales-category') {
+                    loadChartData('/total_sales_per_category', 'Total Sales', 'Total sales per category', null, 'pie', false);
+                }
+            });
+        });
+
+        document.getElementById('year-select').addEventListener('change', () => {
+            const activeButton = document.querySelector('.sub-options button.active');
+            if (activeButton) {
+                activeButton.click();
+            }
+        });
+
+        document.getElementById('interval-select').addEventListener('change', () => {
+            if (document.getElementById('order-activity').classList.contains('active')) {
+                loadChartData('/order_activity_over_time', 'Order Activity', 'Order activity over different time periods', getSelectedInterval());
+            }
+        });
+
+        function loadChartData(url, label, title, param = null, type = 'bar', stacked = false, stepSize = null, minY = 0, maxY = null) {
+            let queryUrl = url;
+            if (param) {
+                queryUrl += `?${url.includes('order_activity_over_time') ? 'interval' : 'storeID'}=${param}`;
+            }
+
+            fetch(queryUrl)
+                .then(response => response.json())
+                .then(data => {
+                    let labels = [], datasets = [], categories = [];
+                    if (url === '/category_share_per_store' || url === '/category_sales_comparison') {
+                        let storeCategoryMap = {};
+                        data.data.forEach(item => {
+                            if (!labels.includes(item.storeID)) labels.push(item.storeID);
+                            if (!categories.includes(item.Category)) categories.push(item.Category);
+                            if (!storeCategoryMap[item.storeID]) storeCategoryMap[item.storeID] = {};
+                            storeCategoryMap[item.storeID][item.Category] = item.NumberOfPizzasSold;
+                        });
+
+                        // Define colors
+                        const colors = ['#DDA0DD', '#9370DB', '#8A2BE2'];
+
+                        categories.forEach((category, index) => {
+                            let dataset = {
+                                label: category,
+                                data: [],
+                                backgroundColor: colors[index % colors.length],
+                                borderColor: 'transparent',
+                                borderWidth: 0
+                            };
+                            labels.forEach(storeID => {
+                                let value = storeCategoryMap[storeID][category] || 0;
+                                dataset.data.push(value);
+                            });
+                            datasets.push(dataset);
+                        });
+                    } else if (url === '/top_categories_per_store') {
+                        const storeLabels = data.data.map(item => `${item.storeID}`);
+                        const dataValues = data.data.map(item => item.NumberOfPizzasSold);
+                        const totalSales = dataValues.reduce((a, b) => a + b, 0);
+
+                        datasets = [{
+                            label: 'Top Categories',
+                            data: dataValues,
+                            backgroundColor: storeLabels.map(() => 'rgba(153, 102, 255, 0.2)'),
+                            borderColor: storeLabels.map(() => 'rgba(153, 102, 255, 1)'),
+                            borderWidth: 1
+                        }];
+
+                        // Update labels with percentage and count
+                        labels = storeLabels.map((label, index) => {
+                            const percentage = ((dataValues[index] / totalSales) * 100).toFixed(2);
+                            return `${label}: ${percentage}% (${dataValues[index]})`;
+                        });
+                    } else if (url === '/seasonal_order_analysis' || url === '/holiday_order_analysis') {
+                        labels = data.data.map(item => new Date(item.OrderDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }));
+                        datasets = [{
+                            label: label,
+                            data: data.data.map(item => item.TotalOrders),
+                            backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1,
+                            fill: type === 'line' ? true : false
+                        }];
+                    } else if (url === '/total_sales_per_category') {
+                        labels = data.data.map(item => item.Category);
+                        const dataValues = data.data.map(item => item.TotalPizzasSold);
+                        const totalSales = dataValues.reduce((a, b) => a + b, 0);
+                        datasets = [{
+                            label: 'Total Sales',
+                            data: dataValues,
+                            backgroundColor: ['#DDA0DD', '#9370DB', '#8A2BE2'],
+                            borderColor: '#fff',
+                            borderWidth: 1,
+                            hoverOffset: 4
+                        }];
+
+                        // Add percentage labels
+                        labels = ['Classic', 'Speciality', 'Vegetarian'];
+                    } else if (url === '/category_order_share') {
+                        labels = data.data.map(item => item.Category);
+                        const dataValues = data.data.map(item => item.TotalFrequency);
+
+                        datasets = [{
+                            label: 'Category Share',
+                            data: dataValues,
+                            backgroundColor: ['#DDA0DD', '#9370DB', '#8A2BE2'],
+                            borderColor: '#fff',
+                            borderWidth: 1,
+                            hoverOffset: 4
+                        }];
+                    }
+
+                    const ctx = document.getElementById('myChart').getContext('2d');
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(ctx, {
+                        type: type,
+                        data: {
+                            labels: labels,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                            let percentage = ((context.raw / total) * 100).toFixed(2);
+                                            if (url === '/top_categories_per_store') {
+                                                return `${context.label.split(':')[0]}: ${context.raw} (${percentage}%) - Category: Vegetarian Pizza`;
+                                            } else {
+                                                return `${context.label}: ${context.raw} (${percentage}%)`;
+                                            }
+                                        }
+                                    }
+                                },
+                                legend: {
+                                    display: true,
+                                    labels: {
+                                        generateLabels: function(chart) {
+                                            if (url === '/top_categories_per_store') {
+                                                return [{
+                                                    text: 'Category: Vegetarian Pizza',
+                                                    strokeStyle: '#8A2BE2',
+                                                    fillStyle: 'transparent',
+                                                    lineWidth: 2
+                                                }];
+                                            } else if (url === '/total_sales_per_category') {
+                                                return labels.map((label, index) => ({
+                                                    text: label,
+                                                    fillStyle: chart.data.datasets[0].backgroundColor[index]
+                                                }));
+                                            } else {
+                                                return Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading chart data:', error));
+        }
+    </script>
+</body>
+</html>
