@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import pymysql
 import pandas as pd
 import logging
+from sqlalchemy import create_engine
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
 
@@ -12,7 +13,7 @@ def get_db_connection():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='Karamel2020',
+        password='Pizzaservice123!',
         database='pizzadata'
     )
     return connection
@@ -32,26 +33,30 @@ def execute_query(query, params=None):
         return None
 
 
-
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
 
 @app.route('/orders', methods=['GET'])
 def orders():
     return render_template('orders.html')
 
+
 @app.route('/customer', methods=['GET'])
 def customer():
     return render_template('customer.html')
+
 
 @app.route('/categories', methods=['GET'])
 def categories():
     return render_template('categories.html')
 
+
 @app.route('/products', methods=['GET'])
 def products():
     return render_template('products.html')
+
 
 @app.route('/store_locations', methods=['GET'])
 def store_locations():
@@ -110,11 +115,16 @@ def total_items_sold_per_store():
 # Endpoint für orders by weekday
 @app.route('/store_orders_by_weekday', methods=['GET'])
 def store_orders_by_weekday():
-    """Endpunkt für Bestellungen pro Wochentag pro Store"""
     try:
-        query = """
+        weekday = request.args.get('weekday')  # Wochentag als Parameter
+        where_clause = ""
+        if weekday:
+            where_clause = f"WHERE Weekday = '{weekday}'"
+
+        query = f"""
         SELECT Weekday, storeID, SUM(NumberOfOrders) AS totalOrders
         FROM OrdersPerWeekday
+        {where_clause}
         GROUP BY Weekday, storeID
         ORDER BY Weekday, storeID;
         """
@@ -168,6 +178,7 @@ def order_activity_over_time():
         logging.error(f"Error in /order_activity_over_time endpoint: {e}")
         return jsonify({"error": "Error fetching order activity data"}), 500
 
+
 @app.route('/only_years', methods=['GET'])
 def only_years():
     """Jahre"""
@@ -186,6 +197,7 @@ def only_years():
     except Exception as e:
         logging.error(f"Error in /only_years endpoint: {e}")
         return jsonify({"error": "Error fetching years data"}), 500
+
 
 @app.route('/store_sales_per_month', methods=['GET'])
 def store_sales_per_month():
@@ -227,6 +239,7 @@ def order_month():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/store_revenue_and_profit_per_month', methods=['GET'])
 def store_revenue_and_profit_per_month():
     """Endpunkt für Umsatz und Gewinn pro Monat"""
@@ -250,11 +263,16 @@ def store_revenue_and_profit_per_month():
 
 @app.route('/daily_order_stats', methods=['GET'])
 def daily_order_stats():
-    # tägliche Bestellstatistiken pro Store, Nützlich für Liniendiagramme zur Visualisierung von Bestelltrends
     try:
-        query = """
+        order_date = request.args.get('orderDate')
+        where_clause = ""
+        if order_date:
+            where_clause = f"WHERE orderDate = '{order_date}'"
+
+        query = f"""
             SELECT storeID, orderDate, NumberOfOrders, TotalItemsSold, AverageOrderValue
             FROM daily_store_order_stats
+            {where_clause}
             ORDER BY orderDate
             """
         df = execute_query(query)
@@ -339,7 +357,6 @@ def daily_order_trends():
         return jsonify({"error": "Error fetching order trends data"}), 500
 
 
-
 @app.route('/daily_store_performance_benchmark', methods=['GET'])
 def daily_store_performance_benchmark():
     # Vergleicht die durchschnittliche Bestellleistung zwischen den Stores, Nützlich für Radar-Charts zur Darstellung der Store-Performance
@@ -365,11 +382,16 @@ def daily_store_performance_benchmark():
 
 @app.route('/weekly_order_stats', methods=['GET'])
 def weekly_order_stats():
-    # Wöchentliche Bestellstatistiken pro Store, nützlich für Liniendiagramme zur Visualisierung von Bestelltrends
     try:
-        query = """
+        week_year = request.args.get('weekYear')
+        where_clause = ""
+        if week_year:
+            where_clause = f"WHERE weekYear = '{week_year}'"
+
+        query = f"""
                 SELECT storeID, weekYear, NumberOfOrders, TotalItemsSold, AverageOrderValue
                 FROM weekly_store_order_stats
+                {where_clause}
                 ORDER BY weekYear
                 """
         df = execute_query(query)
@@ -473,11 +495,16 @@ def weekly_store_performance_benchmark():
 
 @app.route('/monthly_order_stats', methods=['GET'])
 def monthly_order_stats():
-    # Monatliche Bestellstatistiken pro Store, nützlich für Liniendiagramme zur Visualisierung von Bestelltrends
     try:
-        query = """
+        month_year = request.args.get('monthYear')
+        where_clause = ""
+        if month_year:
+            where_clause = f"WHERE monthYear = '{month_year}'"
+
+        query = f"""
                 SELECT storeID, monthYear, NumberOfOrders, TotalItemsSold, AverageOrderValue
                 FROM monthly_store_order_stats
+                {where_clause}
                 ORDER BY monthYear
                 """
         df = execute_query(query)
@@ -872,7 +899,6 @@ def category_order_share():
         return jsonify({"error": "Error fetching category order share data"}), 500
 
 
-
 @app.route('/product_order_share', methods=['GET'])
 def product_order_share():
     """Endpunkt für den Anteil jedes Produktnamens an Anzahl der gesamten Bestellungen -> Kreisdiagramm"""
@@ -999,6 +1025,7 @@ def size_popularity():
     except Exception as e:
         logging.error(f"Error in /size_popularity endpoint: {e}")
         return jsonify({"error": "Error fetching size popularity data"}), 500
+
 
 @app.route('/popular_pizza_by_week_only_weeks', methods=['GET'])
 def popular_pizza_by_week_only_weeks():
