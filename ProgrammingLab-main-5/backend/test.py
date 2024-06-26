@@ -1154,5 +1154,206 @@ def size_cost_efficiency():
         return jsonify({"error": "Error fetching size cost efficiency data"}), 500
 
 
+
+@app.route('/weekly_orders', methods=['GET'])
+def weekly_orders():
+    """Endpoint to fetch weekly order counts"""
+    try:
+        store_id = request.args.get('storeID')
+        year = request.args.get('year')
+        month = request.args.get('month')
+
+        query = """
+        SELECT 
+            storeID,
+            weekday,
+            year,
+            month,
+            SUM(order_count) AS order_count
+        FROM 
+            weekly_order_counts
+        WHERE 1=1
+        """
+
+        conditions = []
+        params = {}
+
+        if store_id:
+            conditions.append("storeID = %(storeID)s")
+            params['storeID'] = store_id
+
+        if year:
+            conditions.append("year = %(year)s")
+            params['year'] = year
+
+        if month:
+            conditions.append("month = %(month)s")
+            params['month'] = month
+
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
+
+        query += """
+        GROUP BY storeID, weekday, year, month
+        ORDER BY storeID, FIELD(weekday, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), year, month
+        """
+
+        df = execute_query(query, params=params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch weekly orders data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /weekly_orders endpoint: {e}")
+        return jsonify({"error": "Error fetching weekly orders data"}), 500
+
+@app.route('/get_stores', methods=['GET'])
+def get_stores():
+    """Endpoint to fetch store IDs"""
+    try:
+        query = "SELECT DISTINCT storeID FROM stores ORDER BY storeID"
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch stores"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(stores=data)
+    except Exception as e:
+        logging.error(f"Error in /get_stores endpoint: {e}")
+        return jsonify({"error": "Error fetching stores"}), 500
+
+@app.route('/get_years', methods=['GET'])
+def get_years():
+    """Endpoint to fetch distinct years"""
+    try:
+        query = "SELECT DISTINCT year FROM weekly_order_counts ORDER BY year"
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch years"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(years=data)
+    except Exception as e:
+        logging.error(f"Error in /get_years endpoint: {e}")
+        return jsonify({"error": "Error fetching years"}), 500
+
+@app.route('/get_months', methods=['GET'])
+def get_months():
+    """Endpoint to fetch distinct months"""
+    try:
+        query = "SELECT DISTINCT month FROM weekly_order_counts ORDER BY month"
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch months"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(months=data)
+    except Exception as e:
+        logging.error(f"Error in /get_months endpoint: {e}")
+        return jsonify({"error": "Error fetching months"}), 500
+
+
+@app.route('/order_activity_per_month', methods=['GET'])
+def order_activity_per_month():
+    """Endpoint to fetch order activity per month"""
+    try:
+        store_id = request.args.get('storeID')
+        year = request.args.get('year')
+
+        query = """
+        SELECT 
+            storeID,
+            year,
+            month,
+            order_count
+        FROM 
+            order_activity_per_month
+        WHERE 1=1
+        """
+
+        params = {}
+        if store_id and store_id != 'all':
+            query += " AND storeID = %(storeID)s"
+            params['storeID'] = store_id
+
+        if year and year != 'all':
+            query += " AND year = %(year)s"
+            params['year'] = year
+
+        query += """
+        ORDER BY storeID, year, month
+        """
+
+        df = execute_query(query, params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch order activity data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /order_activity_per_month endpoint: {e}")
+        return jsonify({"error": "Error fetching order activity data"}), 500
+
+
+@app.route('/order_activity_per_hour', methods=['GET'])
+def order_activity_per_hour():
+    """Endpoint to fetch order activity per hour of day"""
+    try:
+        store_id = request.args.get('storeID')
+        year = request.args.get('year')
+        month = request.args.get('month')
+        week = request.args.get('week')  # Add week parameter if needed
+
+        query = """
+        SELECT 
+            hour,
+            SUM(order_count) AS order_count
+        FROM 
+            order_activity_per_hour
+        WHERE 1=1
+        """
+
+        params = {}
+        if store_id and store_id != 'all':
+            query += " AND storeID = %(storeID)s"
+            params['storeID'] = store_id
+
+        if year and year != 'all':
+            query += " AND year = %(year)s"
+            params['year'] = year
+
+        if month and month != 'all':
+            query += " AND month = %(month)s"
+            params['month'] = month
+
+        if week and week != 'all':
+            query += " AND WEEK(CONCAT(year, '-', month, '-', day)) = %(week)s"
+            params['week'] = week
+
+        query += """
+        GROUP BY hour
+        ORDER BY hour
+        """
+
+        logging.debug(f"Executing query: {query} with params: {params}")
+
+        df = execute_query(query, params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch order activity data"}), 500
+
+        logging.debug(f"Fetched data: {df.head()}")  # Log only the first few rows for debugging
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /order_activity_per_hour endpoint: {e}")
+        return jsonify({"error": "Error fetching order activity data"}), 500
+
+
+
+
+
+
 if __name__ == '__main__':
     app.run(port=8085, debug=True)
