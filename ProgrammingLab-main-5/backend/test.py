@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, jsonify
 import pymysql
 import pandas as pd
 import logging
-from sqlalchemy import create_engine
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
 
@@ -13,7 +12,7 @@ def get_db_connection():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='Pizzaservice123!',
+        password='Karamel2020',
         database='pizzadata'
     )
     return connection
@@ -876,6 +875,27 @@ def most_popular_products():
         logging.error(f"Error in /most_popular_products endpoint: {e}")
         return jsonify({"error": "Error fetching most popular products data"}), 500
 
+@app.route('/popular_products_by_store', methods=['GET'])
+def popular_products_by_store():
+    """Endpoint to get the most popular products by name and store just for one particular store"""
+    try:
+        store_id = request.args.get('storeID')
+        query = f"""
+            SELECT storeID, Name, size, total_items_sold_per_store
+            FROM total_items_sold
+            WHERE storeID = '{store_id}'
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch popular products data"}), 500
+
+        data = df.to_dict(orient='records')
+        print(data)  # Debug statement to check data
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /popular_products_by_store: {e}")
+        return jsonify({"error": "Error fetching popular products data"}), 500
+
 
 @app.route('/category_order_share', methods=['GET'])
 def category_order_share():
@@ -1349,9 +1369,6 @@ def order_activity_per_hour():
     except Exception as e:
         logging.error(f"Error in /order_activity_per_hour endpoint: {e}")
         return jsonify({"error": "Error fetching order activity data"}), 500
-
-
-
 
 
 
