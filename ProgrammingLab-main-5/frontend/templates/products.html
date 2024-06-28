@@ -585,12 +585,12 @@
                 .then(response => response.json())
                 .then(data => {
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
-                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const sizes = ['Small', 'Medium', 'Large', 'Extra Large']; // Anpassung der Labels
                     const datasets = sizes.map((size, index) => {
                         return {
                             label: size,
                             data: pizzas.map(pizza => {
-                                const item = data.data.find(d => d.Name === pizza && d.Size === size);
+                                const item = data.data.find(d => d.Name === pizza && d.Size === size); // Anpassung für case-insensitive Vergleich
                                 return item ? item.profit : 0;
                             }),
                             backgroundColor: customColors[index % customColors.length],
