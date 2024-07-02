@@ -137,7 +137,6 @@
             <button id="revenue-and-profit-per-month">Revenue and profit per month per store</button>
             <button id="average-order-value">Average order value per store</button>
             <button id="average-order-performance">Average order performance between stores</button>
-            <button id="order-trends-over-time">Order trends over time periods</button>
         </div>
         <div id="order-activity-options" class="sub-options">
             <button id="order-activity-hour">Order activity per hour</button>
@@ -257,12 +256,6 @@
                     loadChartData('/daily_average_order_value_per_store', 'Average Order Value', 'Average order value per store', null, 'line');
                 } else if (button.id === 'average-order-performance') {
                     loadChartData('/daily_store_performance_benchmark', 'Average Order Performance', 'Average order performance between stores');
-                } else if (button.id === 'order-trends-over-time') {
-                    document.getElementById('year-filter-container').style.display = 'block';
-                    loadYears().then(() => {
-                        const selectedYear = document.getElementById('year-select').value;
-                        loadChartData('/daily_order_trends', 'Order Trends', 'Order trends over time periods', selectedYear);
-                    });
                 } else if (button.id === 'order-activity-hour') {
                     document.getElementById('store-select-container').style.display = 'block';
                     document.getElementById('month-filter-container').style.display = 'block';
@@ -305,9 +298,7 @@
         document.getElementById('year-select').addEventListener('change', () => {
             const scrollPosition = saveScrollPosition();
             const selectedYear = document.getElementById('year-select').value;
-            if (document.getElementById('order-trends-over-time').classList.contains('active')) {
-                loadChartData('/daily_order_trends', 'Order Trends', 'Order trends over time periods', selectedYear);
-            } else if (document.getElementById('order-activity-month').classList.contains('active')) {
+            if (document.getElementById('order-activity-month').classList.contains('active')) {
                 loadOrderActivityPerMonth();
             }
             restoreScrollPosition(scrollPosition);
