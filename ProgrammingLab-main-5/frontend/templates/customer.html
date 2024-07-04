@@ -48,176 +48,502 @@
             flex-direction: column;
         }
 
-        #map-container {
+        #first-container {
             display: flex;
-            width: 100%;
+            gap: 20px;
+        }
+
+        #map-wrapper {
+            width: 50%;
+            height: 500px;
         }
 
         #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        #avg-wrapper {
+            width: 50%;
             height: 500px;
-            width: 50%;
+            position: relative;
         }
 
-        #charts-container {
-            width: 50%;
-            padding-left: 20px;
+        #average_order_value_chart {
+            width: 100%;
+            height: 100%;
+        }
+
+        #second-container {
             display: flex;
-            flex-direction: column;
-        }
-
-        .chart {
-            margin-bottom: 20px;
-        }
-
-        .chart-container {
             margin-top: 20px;
+            width: 50%;
+            height: 500px;
         }
 
-        #interval-select-container,
-        #order-month-select-container,
-        #month-filter-container,
-        #date-filter-container {
-            display: none;
-            margin-top: 10px;
+        #top_customers_chart {
+            width: 100%;
+            height: 100%;
         }
+
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 8px solid #e74c3c;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin: -30px 0 0 -30px;
+            z-index: 1000;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #year {
+    margin-bottom: 20px;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    background-color: #f9f9f9;
+    font-size: 16px;
+    color: #333;
+    transition: all 0.3s ease;
+}
+
+#year:hover {
+    border-color: #bbb;
+    background-color: #fff;
+}
+
+#year-label {
+    margin-right: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #555;
+}
+
     </style>
     <!-- Include Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="static/js/HeatLayer.js"></script>
+    <script src="static/js/simpleheat.js"></script>
 </head>
 <body>
     <nav>
-       <a href="/" id="home-link">Home</a>
+        <a href="/" id="home-link">Home</a>
         <a href="/orders" id="orders-link">Orders</a>
         <a href="/customer" id="customer-link">Customer</a>
         <a href="/categories" id="categories-link">Categories</a>
         <a href="/products" id="products-link">Products</a>
+        <a href="/sales">Sales</a>
+        <a href="/stores">Stores</a>
     </nav>
     <main>
         <h3>Customer Analysis</h3>
-        <div id="map-container">
-            <div id="map"></div>
-            <div id="charts-container">
-                <div class="chart">
-                    <canvas id="topCustomersChart"></canvas>
+
+        <select id="year">
+            <option value="all">All</option>
+            <option value="2020">2020</option>
+            <option value="2021">2021</option>
+            <option value="2022">2022</option>
+        </select>
+
+
+        <div id="first-container">
+            <div id="map-wrapper"><div id="map"></div></div>
+
+            <div id="avg-wrapper">
+                <div class="overlay" id="overlay">
+                    <div class="loader"></div>
                 </div>
-                <div class="chart">
-                   <canvas id="uniqueCustomersChart"></canvas>
-                </div>
+                <canvas id="average_order_value_chart"></canvas>
             </div>
+        </div>
+        <div id="second-container">
+            <canvas id="top_customers_chart"></canvas>
+            <canvas id="customer_loyalty_chart"></canvas>
         </div>
     </main>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            var map = L.map('map').setView([37.7749, -122.4194], 5);
+document.addEventListener('DOMContentLoaded', function () {
+    var map = L.map('map').setView([37.7749, -122.4194], 5);
+    var homeCoords = [37.7749, -122.4194];
+    var homeZoom = 5;
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-            var currentStoreId = null;
-            var customerMarkers = [];
-            var storeMarkers = [];
+    // Custom control for Home button with an icon
+    var homeButton = L.control({position: 'topleft'});
+    homeButton.onAdd = function (map) {
+        var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        div.innerHTML = '<img src="https://cdn-icons-png.flaticon.com/512/1946/1946488.png" alt="Home" style="width:20px; height:20px;">';
+        div.style.backgroundColor = 'white';
+        div.style.width = '34px';
+        div.style.height = '34px';
+        div.style.display = 'flex';
+        div.style.justifyContent = 'center';
+        div.style.alignItems = 'center';
+        div.style.cursor = 'pointer';
+        div.onclick = function(){
+            map.flyTo(homeCoords, homeZoom, {
+                duration: 0.5
+            });
+        };
+        return div;
+    };
+    homeButton.addTo(map);
 
-            fetch('/store_locations')
-            .then(response => response.json())
-            .then(data => {
-                data.store_data.forEach(store => {
-                    var marker = L.marker([store.latitude, store.longitude])
-                        .addTo(map)
-                        .bindPopup('<b>' + store.city + ', ' + store.state + '</b><br>Store ID: ' + store.storeID);
-                    storeMarkers.push(marker);
+    // Adjust the position of the home button to be below the zoom controls
+    var homeButtonContainer = document.querySelector('.leaflet-control-custom');
+    var zoomControlContainer = document.querySelector('.leaflet-control-zoom');
+    zoomControlContainer.parentNode.insertBefore(homeButtonContainer, zoomControlContainer.nextSibling);
 
-                    marker.on('click', function() {
-                        map.setView([store.latitude, store.longitude], 12);
-                        currentStoreId = store.storeID;
+    // Load store locations
+    fetch('/store_locations')
+        .then(function (response) {
+            return response.json();
+        })
+        .then(function (data) {
+            if (!data.store_data || !Array.isArray(data.store_data)) {
+                throw new TypeError('Expected an array of store locations in data.store_data');
+            }
 
-                        customerMarkers.forEach(marker => map.removeLayer(marker));
-                        customerMarkers = [];
+            data.store_data.forEach(function (store) {
+                var marker = L.marker([store.latitude, store.longitude]);
+                marker.bindPopup(`<strong>${store.storeID}</strong><br>${store.city}, ${store.state}`);
+                marker.addTo(map);
 
-                        fetch('/customer_locations?storeID=' + store.storeID)
-                        .then(response => response.json())
-                        .then(data => {
-                            data.customer_data.forEach(customer => {
-                                var marker = L.circleMarker([customer.latitude, customer.longitude], { color: 'blue', radius: 5 }).addTo(map);
-                                customerMarkers.push(marker);
-                            });
-
-                            fetchTopCustomersChart(store.storeID);
-                            fetchOrderActivityChart(store.storeID);
-                        })
-                        .catch(error => console.error('Error fetching customer locations:', error));
+                marker.on('click', function () {
+                    map.flyTo([store.latitude, store.longitude], 12, {
+                        duration: 0.5
                     });
                 });
-            })
-            .catch(error => console.error('Error fetching store locations:', error));
-
-            function fetchTopCustomersChart(storeID) {
-                fetch(`/chart_data/top_customers?storeID=${storeID}`)
-                .then(response => response.json())
-                .then(data => {
-                    renderBarChart('topCustomersChart', data, 'Top Customers by Total Spend');
-                })
-                .catch(error => console.error('Error fetching top customers chart data:', error));
-            }
-
-            function fetchUniqueCustomersChart() {
-        fetch(`/unique_customers_per_store_table`)
-        .then(response => response.json())
-        .then(data => {
-            renderBarChart('uniqueCustomersChart', data.unique_customers_data, 'Unique Customers per Store');
+            });
         })
-        .catch(error => console.error('Error fetching unique customers per store data:', error));
-    }
+        .catch(function (error) {
+            console.error('Error:', error);
+        });
 
-            function renderBarChart(chartId, chartData, chartTitle) {
-                var ctx = document.getElementById(chartId).getContext('2d');
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: chartData.labels,
-                        datasets: [{
-                            label: chartTitle,
-                            data: chartData.data,
-                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-            }
+    fetch('/customers_with_orders')
+        .then(function (response) {
+            return response.json();
+        })
+        .then(function (data) {
+            // add heatmap
 
-            function renderLineChart(chartId, chartData, chartTitle) {
-                var ctx = document.getElementById(chartId).getContext('2d');
-                new Chart(ctx, {
+            // convert data to list of coordinates and weights, just convert the dict to list
+            let coords = Object.keys(data.data).map(function (key) {
+                return [data.data[key].latitude, data.data[key].longitude, data.data[key].order_count];
+            });
+
+            var heatmap = L.heatLayer(coords).addTo(map);
+        })
+        .catch(function (error) {
+            console.error('Error:', error);
+        });
+
+    let averageOrderChart = null;
+    let overlay = document.getElementById('overlay');
+    let year = document.getElementById('year');
+
+    function fetchAverageOrderValue() {
+        overlay.style.display = 'flex';
+
+        var bounds = map.getBounds();
+        var northEast = bounds.getNorthEast();
+        var southWest = bounds.getSouthWest();
+
+        fetch(`/average_order_value?ne_lat=${northEast.lat}&ne_lng=${northEast.lng}&sw_lat=${southWest.lat}&sw_lng=${southWest.lng}&year=${year.value}`)
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                const labels = data.data.map(item => item.week);
+                const avgOrderValues = data.data.map(item => item.avg_order_value);
+                const ordersPerCustomer = data.data.map(item => item.avg_order_count_per_customer);
+
+                const ctx = document.getElementById('average_order_value_chart').getContext('2d');
+
+                if (window.averageOrderChart) {
+                    window.averageOrderChart.destroy();
+                }
+
+                window.averageOrderChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: chartData.labels,
-                        datasets: [{
-                            label: chartTitle,
-                            data: chartData.data,
-                            backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                            borderColor: 'rgba(153, 102, 255, 1)',
-                            borderWidth: 1
-                        }]
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Average Order Value (€)',
+                                data: avgOrderValues,
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y-axis-1'
+                            },
+                            {
+                                label: 'Orders per Customer',
+                                data: ordersPerCustomer,
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y-axis-2'
+                            }
+                        ]
                     },
                     options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Average Order Value and Orders per Customer',
+                                font: {
+                                    size: 20
+                                }
+                            }
+                        },
+                        maintainAspectRatio: false,
+                    }
+                });
+
+                overlay.style.display = 'none';
+            })
+            .catch(function (error) {
+                console.error('Error:', error);
+                overlay.style.display = 'none';
+            });
+    }
+
+    let topCustomersChart = null;
+
+    function fetchTopCustomers() {
+        var bounds = map.getBounds();
+        var northEast = bounds.getNorthEast();
+        var southWest = bounds.getSouthWest();
+
+        fetch(`/top_customers_filtered?ne_lat=${northEast.lat}&ne_lng=${northEast.lng}&sw_lat=${southWest.lat}&sw_lng=${southWest.lng}&year=${year.value}`)
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                const labels = data.data.map(item => item.customer_id);
+                const orderCounts = data.data.map(item => item.order_count);
+                const firstOrderDates = data.data.map(item => item.first_order_date);
+
+                const ctx = document.getElementById('top_customers_chart').getContext('2d');
+
+                if (window.topCustomersChart) {
+                    window.topCustomersChart.destroy();
+                }
+
+                window.topCustomersChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Number of Orders',
+                                data: orderCounts,
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Top 25 Customers',
+                                font: {
+                                    size: 20
+                                }
+                            }
+                        },
+                        maintainAspectRatio: false,
+                        tooltips: {
+                            callbacks: {
+                                afterLabel: function(tooltipItem, data) {
+                                    return 'First Order: ' + firstOrderDates[tooltipItem.index];
+                                }
                             }
                         }
                     }
                 });
-            }
-        });
+            })
+            .catch(function (error) {
+                console.error('Error:', error);
+            });
+    }
+
+    let customerLoyaltyChart = null;
+
+    function fetchCustomerLoyalty() {
+        var bounds = map.getBounds();
+        var northEast = bounds.getNorthEast();
+        var southWest = bounds.getSouthWest();
+
+        fetch(`/customer_loyalty?ne_lat=${northEast.lat}&ne_lng=${northEast.lng}&sw_lat=${southWest.lat}&sw_lng=${southWest.lng}&year=${year.value}`)
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                const storeIDs = data.data.map(item => item.storeID);
+                const moreThan15 = data.data.map(item => item.more_than_15);
+                const moreThan10 = data.data.map(item => item.more_than_10);
+                const moreThan5 = data.data.map(item => item.more_than_5);
+                const lessThan5 = data.data.map(item => item.less_than_5);
+
+                const ctx = document.getElementById('customer_loyalty_chart').getContext('2d');
+
+                if (moreThan10.length > 5) {
+                    const avgMoreThan15 = moreThan15.reduce((a, b) => a + b, 0) / moreThan15.length;
+                    const avgMoreThan10 = moreThan10.reduce((a, b) => a + b, 0) / moreThan10.length;
+                    const avgMoreThan5 = moreThan5.reduce((a, b) => a + b, 0) / moreThan5.length;
+                    const avgLessThan5 = lessThan5.reduce((a, b) => a + b, 0) / lessThan5.length;
+
+                    const labels = ['> 15 Orders', '> 10 Orders', '> 5 Orders', '< 5 Orders'];
+                    const averages = [avgMoreThan15, avgMoreThan10, avgMoreThan5, avgLessThan5];
+
+                    if (window.customerLoyaltyChart) {
+                        window.customerLoyaltyChart.destroy();
+                    }
+
+                    window.customerLoyaltyChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Average Customer Loyalty',
+                                data: averages,
+                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'Customer Loyalty (Average)',
+                                    font: {
+                                        size: 20
+                                    }
+                                }
+                            },
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    if (window.customerLoyaltyChart) {
+                        window.customerLoyaltyChart.destroy();
+                    }
+
+                    window.customerLoyaltyChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: storeIDs,
+                            datasets: [
+                                {
+                                    label: '> 15 Orders',
+                                    data: moreThan15,
+                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: '> 10 Orders',
+                                    data: moreThan10,
+                                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: '> 5 Orders',
+                                    data: moreThan5,
+                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                    borderColor: 'rgba(75, 192, 192, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: '< 5 Orders',
+                                    data: lessThan5,
+                                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                    borderColor: 'rgba(153, 102, 255, 1)',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'Customer Loyalty',
+                                    font: {
+                                        size: 20
+                                    }
+                                }
+                            },
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(function (error) {
+                console.error('Error:', error);
+            });
+    }
+
+    map.on('moveend', function () {
+        fetchAverageOrderValue();
+        fetchTopCustomers();
+        fetchCustomerLoyalty();
+    });
+
+    // refresh on year change
+    year.addEventListener('change', function () {
+        fetchAverageOrderValue();
+        fetchTopCustomers();
+        fetchCustomerLoyalty();
+    });
+
+    // Initial fetch
+    fetchAverageOrderValue();
+    fetchTopCustomers();
+    fetchCustomerLoyalty();
+});
     </script>
 </body>
 </html>
