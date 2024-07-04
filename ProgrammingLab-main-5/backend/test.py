@@ -1425,5 +1425,712 @@ def order_activity_per_hour():
 
 
 
+
+@app.route('/sales_data', methods=['GET'])
+def sales_data():
+    """Endpoint to fetch weekly sales data from pre-aggregated table."""
+    try:
+        query = """
+        SELECT product_name, year, month, total_sales
+        FROM monthly_product_sales
+        ORDER BY product_name, year, month;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch sales data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /sales_data endpoint: {e}")
+        return jsonify({"error": "Error fetching sales data"}), 500
+
+
+
+"""stores"""
+
+
+@app.route('/store_performance', methods=['GET'])
+def store_performance():
+    """Endpoint to fetch store performance data"""
+    try:
+        store_id = request.args.get('storeID')
+        year = request.args.get('year')
+        month = request.args.get('month')
+        week = request.args.get('week')
+
+        query = """
+        SELECT 
+            storeID,
+            year,
+            month,
+            week,
+            total_sales
+        FROM 
+            store_performance
+        WHERE 1=1
+        """
+
+        conditions = []
+        params = {}
+
+        if store_id and store_id != 'all':
+            conditions.append("storeID = %(storeID)s")
+            params['storeID'] = store_id
+
+        if year:
+            conditions.append("year = %(year)s")
+            params['year'] = year
+
+        if month:
+            conditions.append("month = %(month)s")
+            params['month'] = month
+
+        if week:
+            conditions.append("week = %(week)s")
+            params['week'] = week
+
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
+
+        query += " ORDER BY year, month, week"
+
+        df = execute_query(query, params=params)
+        if df is None or df.empty:
+            return jsonify({"error": "Failed to fetch store performance data"}), 500
+
+        # Format the data for correct date representation
+        df['date'] = df.apply(lambda row: f"{row['year']}-{row['month']:02d}", axis=1)
+        df = df.groupby('date').agg({'total_sales': 'sum'}).reset_index()
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /store_performance endpoint: {e}")
+        return jsonify({"error": "Error fetching store performance data"}), 500
+
+
+
+
+@app.route('/sales_trends', methods=['GET'])
+def sales_trends():
+    """Endpoint to fetch sales trends data"""
+    try:
+        store_id = request.args.get('storeID')
+
+        query = """
+        SELECT 
+            storeID,
+            year,
+            month,
+            total_sales
+        FROM 
+            sales_trends
+        WHERE 1=1
+        """
+
+        params = {}
+        if store_id and store_id != 'all':
+            query += " AND storeID = %(storeID)s"
+            params['storeID'] = store_id
+
+        query += " ORDER BY year, month"
+
+        df = execute_query(query, params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch sales trends data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /sales_trends endpoint: {e}")
+        return jsonify({"error": "Error fetching sales trends data"}), 500
+
+
+
+
+
+
+@app.route('/category_sales', methods=['GET'])
+def category_sales():
+    """Endpoint to fetch sales data by product category"""
+    try:
+        store_id = request.args.get('storeID')
+        year = request.args.get('year')
+        month = request.args.get('month')
+        week = request.args.get('week')
+
+        query = """
+        SELECT 
+            storeID,
+            category,
+            product_name,
+            year,
+            month,
+            week,
+            total_sales
+        FROM 
+            category_sales
+        WHERE 1=1
+        """
+
+        conditions = []
+        params = {}
+
+        if store_id:
+            conditions.append("storeID = %(storeID)s")
+            params['storeID'] = store_id
+
+        if year:
+            conditions.append("year = %(year)s")
+            params['year'] = year
+
+        if month:
+            conditions.append("month = %(month)s")
+            params['month'] = month
+
+        if week:
+            conditions.append("week = %(week)s")
+            params['week'] = week
+
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
+
+        query += " ORDER BY category, product_name, year, month, week"
+
+        df = execute_query(query, params=params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch category sales data"}), 500
+
+        # Aggregate data by category and product name
+        df['date'] = df.apply(lambda row: f"{row['year']}-{row['month']:02d}-W{str(row['week']).zfill(2)}", axis=1)
+        grouped_df = df.groupby(['category', 'product_name']).agg({'total_sales': 'sum'}).reset_index()
+
+        data = grouped_df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /category_sales endpoint: {e}")
+        return jsonify({"error": "Error fetching category sales data"}), 500
+
+
+
+
+
+
+@app.route('/store_profitability', methods=['GET'])
+def store_profitability():
+    """Endpoint to fetch store profitability data"""
+    try:
+        store_id = request.args.get('storeID')
+        year = request.args.get('year')
+        month = request.args.get('month')
+        week = request.args.get('week')
+
+        query = """
+        SELECT 
+            storeID,
+            year,
+            month,
+            week,
+            totalRevenue,
+            totalProfit
+        FROM 
+            store_profitability
+        WHERE 1=1
+        """
+
+        conditions = []
+        params = {}
+
+        if store_id:
+            conditions.append("storeID = %(storeID)s")
+            params['storeID'] = store_id
+
+        if year:
+            conditions.append("year = %(year)s")
+            params['year'] = year
+
+        if month:
+            conditions.append("month = %(month)s")
+            params['month'] = month
+
+        if week:
+            conditions.append("week = %(week)s")
+            params['week'] = week
+
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
+
+        query += " ORDER BY storeID, year, month, week"
+
+        df = execute_query(query, params=params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch store profitability data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /store_profitability endpoint: {e}")
+        return jsonify({"error": "Error fetching store profitability data"}), 500
+
+
+
+
+
+@app.route('/product_preferences', methods=['GET'])
+def product_preferences():
+    """Endpoint to fetch product preferences data"""
+    try:
+        store_id = request.args.get('storeID')
+        year = request.args.get('year')
+        month = request.args.get('month')
+        week = request.args.get('week')
+
+        query = """
+        SELECT 
+            product_name,
+            SUM(order_count) AS order_count
+        FROM 
+            product_preferences
+        WHERE 1=1
+        """
+
+        conditions = []
+        params = {}
+
+        if store_id:
+            conditions.append("storeID = %(storeID)s")
+            params['storeID'] = store_id
+
+        if year:
+            conditions.append("year = %(year)s")
+            params['year'] = year
+
+        if month:
+            conditions.append("month = %(month)s")
+            params['month'] = month
+
+        if week:
+            conditions.append("week = %(week)s")
+            params['week'] = week
+
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
+
+        query += " GROUP BY product_name ORDER BY order_count DESC LIMIT 8"
+
+        df = execute_query(query, params=params)
+        if df is None:
+            return jsonify({"error": "Failed to fetch product preferences data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /product_preferences endpoint: {e}")
+        return jsonify({"error": "Error fetching product preferences data"}), 500
+
+
+
+"""customers"""
+
+
+
+@app.route('/customers_with_orders', methods=['GET'])
+def customers_with_orders():
+    try:
+        query = """
+        SELECT
+        COUNT(o.orderID) / 25 as order_count,
+        c.latitude, c.longitude
+        FROM orders o INNER JOIN customers c ON o.customerID = c.customerID 
+        GROUP BY o.customerID
+        """
+
+        df = execute_query(query)
+
+        if df is None:
+            return jsonify({"error": "Failed to fetch customers with orders data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+
+    except Exception as e:
+        logging.error(f"Error in /customers_with_orders endpoint: {e}")
+        return jsonify({"error": "Error fetching customers with orders data"}), 500
+
+
+@app.route('/average_order_value', methods=['GET'])
+def weekly_average_order_value():
+    """ Returns the week, the average order value, and the average order count for the specified year """
+    try:
+        ne_lat = round(float(request.args.get('ne_lat')), 4)
+        ne_lng = round(float(request.args.get('ne_lng')), 4)
+        sw_lat = round(float(request.args.get('sw_lat')), 4)
+        sw_lng = round(float(request.args.get('sw_lng')), 4)
+        year = request.args.get('year')
+
+        if year == "all":
+            year_condition = ""
+        else:
+            year_condition = "AND YEAR(o.adjustedOrderDate) = %s"
+
+        query = f"""
+SELECT 
+    week, 
+    AVG(total) AS avg_order_value,
+    AVG(order_count) AS avg_order_count_per_customer
+FROM (
+    SELECT 
+        DATE_FORMAT(o.adjustedOrderDate, '%%Y-%%u') AS week, 
+        o.total,
+        COUNT(o.orderID) OVER (PARTITION BY o.customerID, DATE_FORMAT(o.adjustedOrderDate, '%%Y-%%u')) AS order_count
+    FROM 
+        extendedorders o
+    INNER JOIN 
+        stores s 
+    ON 
+        s.storeID = o.storeID
+    WHERE
+        s.latitude BETWEEN %s AND %s AND
+        s.longitude BETWEEN %s AND %s
+        {year_condition}
+) subquery
+GROUP BY week 
+ORDER BY week;
+        """
+
+        if year == "all":
+            params = (sw_lat, ne_lat, sw_lng, ne_lng)
+        else:
+            params = (sw_lat, ne_lat, sw_lng, ne_lng, int(year))
+
+        df = execute_query(query, params)
+
+        if df is None:
+            return jsonify({"error": "Failed to fetch weekly average order value data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /average_order_value endpoint: {e}")
+        return jsonify({"error": "Error fetching weekly average order value data"}), 500
+
+
+@app.route('/top_customers_filtered', methods=['GET'])
+def top_customers_filtered():
+    """
+    Parameters:
+    ne_lat (float): Latitude of the North-East corner of the bounding box.
+    ne_lng (float): Longitude of the North-East corner of the bounding box.
+    sw_lat (float): Latitude of the South-West corner of the bounding box.
+    sw_lng (float): Longitude of the South-West corner of the bounding box.
+    year (int): The year to filter the orders.
+
+    Response:
+    data (array): An array of customer objects, each containing:
+    customer_id (string): The ID of the customer.
+    order_count (int): The total number of orders placed by the customer.
+    first_order_date (string): The date of the customer's first order.
+    """
+    try:
+        ne_lat = round(float(request.args.get('ne_lat')), 4)
+        ne_lng = round(float(request.args.get('ne_lng')), 4)
+        sw_lat = round(float(request.args.get('sw_lat')), 4)
+        sw_lng = round(float(request.args.get('sw_lng')), 4)
+        year = request.args.get('year')
+
+        if year == "all":
+            year_condition = ""
+        else:
+            year_condition = "AND YEAR(o.adjustedOrderDate) = %s"
+
+        sql = f"""
+SELECT 
+    c.customerID AS customer_id,
+    COUNT(o.orderID) AS order_count,
+    MIN(o.adjustedOrderDate) AS first_order_date
+FROM 
+    customers c
+INNER JOIN 
+    extendedorders o 
+ON 
+    c.customerID = o.customerID
+INNER JOIN 
+    stores s 
+ON 
+    o.storeID = s.storeID
+WHERE
+    s.latitude BETWEEN %s AND %s AND
+    s.longitude BETWEEN %s AND %s
+    {year_condition}
+GROUP BY 
+    c.customerID
+ORDER BY 
+    order_count DESC
+LIMIT 25;"""
+
+        if year == "all":
+            params = (sw_lat, ne_lat, sw_lng, ne_lng)
+        else:
+            params = (sw_lat, ne_lat, sw_lng, ne_lng, int(year))
+
+        df = execute_query(sql, params)
+
+        if df is None:
+            return jsonify({"error": "Failed to fetch top customers data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+
+    except Exception as e:
+        logging.error(f"Error in /top_customers_filtered endpoint: {e}")
+        return jsonify({"error": "Error fetching top customers data"}), 500
+
+
+@app.route('/customer_loyalty', methods=['GET'])
+def customer_frequency():
+    """
+    Parameters:
+    ne_lat (float): Latitude of the North-East corner of the bounding box.
+    ne_lng (float): Longitude of the North-East corner of the bounding box.
+    sw_lat (float): Latitude of the South-West corner of the bounding box.
+    sw_lng (float): Longitude of the South-West corner of the bounding box.
+    year (int): The year to filter the orders.
+
+    Response:
+    data (array): An array of store objects, each containing:
+    store_id (string): The ID of the store.
+    more_than_15 (int): Number of customers visiting more than 15 times per month.
+    more_than_10 (int): Number of customers visiting more than 10 times per month.
+    more_than_5 (int): Number of customers visiting more than 5 times per month.
+    less_than_5 (int): Number of customers visiting less than 5 times per month.
+    """
+    try:
+        ne_lat = round(float(request.args.get('ne_lat')), 4)
+        ne_lng = round(float(request.args.get('ne_lng')), 4)
+        sw_lat = round(float(request.args.get('sw_lat')), 4)
+        sw_lng = round(float(request.args.get('sw_lng')), 4)
+        year = request.args.get('year')
+
+        if year == "all":
+            year_condition = ""
+        else:
+            year_condition = "AND YEAR(o.adjustedOrderDate) = %s"
+
+        sql = f"""
+SELECT 
+    storeID,
+    SUM(CASE WHEN monthly_visits > 15 THEN 1 ELSE 0 END) AS more_than_15,
+    SUM(CASE WHEN monthly_visits > 10 AND monthly_visits <= 15 THEN 1 ELSE 0 END) AS more_than_10,
+    SUM(CASE WHEN monthly_visits > 5 AND monthly_visits <= 10 THEN 1 ELSE 0 END) AS more_than_5,
+    SUM(CASE WHEN monthly_visits <= 5 THEN 1 ELSE 0 END) AS less_than_5
+FROM (
+    SELECT 
+        o.customerID,
+        o.storeID,
+        COUNT(o.orderID) / 12.0 AS monthly_visits
+    FROM 
+        extendedorders o
+    INNER JOIN 
+        stores s 
+    ON 
+        o.storeID = s.storeID
+    WHERE
+        s.latitude BETWEEN %s AND %s AND
+        s.longitude BETWEEN %s AND %s
+        {year_condition}
+    GROUP BY 
+        o.customerID, o.storeID
+) customer_visits
+GROUP BY storeID;
+        """
+
+        if year == "all":
+            params = (sw_lat, ne_lat, sw_lng, ne_lng)
+        else:
+            params = (sw_lat, ne_lat, sw_lng, ne_lng, int(year))
+
+        df = execute_query(sql, params)
+
+        if df is None:
+            return jsonify({"error": "Failed to fetch customer frequency data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+
+    except Exception as e:
+        logging.error(f"Error in /customer_loyalty endpoint: {e}")
+        return jsonify({"error": "Error fetching customer frequency data"}), 500
+
+
+
+"""chart für über stores"""
+
+@app.route('/total_revenue', methods=['GET'])
+def total_revenue():
+    """Endpoint to fetch total revenue for all stores"""
+    try:
+        query = """
+        SELECT 
+            storeID,
+            SUM(totalRevenue) as total_revenue
+        FROM 
+            monthly_store_revenue
+        GROUP BY 
+            storeID
+        ORDER BY 
+            total_revenue DESC
+        """
+        df = execute_query(query)
+        if df is None or df.empty:
+            return jsonify({"error": "Failed to fetch total revenue data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /total_revenue endpoint: {e}")
+        return jsonify({"error": "Error fetching total revenue data"}), 500
+
+
+
+"""homepage """
+
+
+@app.route('/order_trends', methods=['GET'])
+def order_trends():
+    """Endpoint to fetch order trends"""
+    try:
+        query = """
+        SELECT 
+            DATE_FORMAT(orderDate, '%Y-%m') AS month, 
+            COUNT(orderID) AS orderCount
+        FROM 
+            orders
+        GROUP BY 
+            month
+        ORDER BY 
+            month;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch order trend data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /order_trends endpoint: {e}")
+        return jsonify({"error": "Error fetching order trend data"}), 500
+
+
+
+
+@app.route('/customers_per_state', methods=['GET'])
+def customers_per_state():
+    """Endpoint to fetch customers per state data"""
+    try:
+        query = """
+        SELECT 
+            s.state, 
+            COUNT(c.customerID) AS customerCount
+        FROM 
+            customers c
+        JOIN stores s ON ABS(c.latitude - s.latitude) < 0.5 AND ABS(c.longitude - s.longitude) < 0.5
+        GROUP BY s.state
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch customers per state data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /customers_per_state endpoint: {e}")
+        return jsonify({"error": "Error fetching customers per state data"}), 500
+
+
+
+
+
+
+
+
+# Endpoint for Total Quantity per Product
+@app.route('/total_quantity_per_product', methods=['GET'])
+def total_quantity_per_product():
+    """Endpoint to fetch total quantity per product data"""
+    try:
+        query = """
+        SELECT 
+            p.Name AS productName, 
+            COUNT(oi.orderItemID) AS totalQuantity
+        FROM 
+            orderItems oi
+        JOIN products p ON oi.SKU = p.SKU
+        GROUP BY 
+            p.Name
+        ORDER BY 
+            totalQuantity DESC
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch total quantity per product data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /total_quantity_per_product endpoint: {e}")
+        return jsonify({"error": "Error fetching total quantity per product data"}), 500
+
+@app.route('/total_revenue_per_store', methods=['GET'])
+def total_revenue_per_store():
+    """Endpoint to fetch total revenue per store"""
+    try:
+        query = """
+        SELECT s.storeID, SUM(o.total) AS totalRevenue
+        FROM orders o
+        JOIN stores s ON o.storeID = s.storeID
+        GROUP BY s.storeID
+        ORDER BY totalRevenue DESC
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch total revenue per store data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /total_revenue_per_store endpoint: {e}")
+        return jsonify({"error": "Error fetching total revenue per store data"}), 500
+
+
+
+@app.route('/stores_per_state', methods=['GET'])
+def stores_per_state():
+    """Endpoint to fetch store count per state"""
+    try:
+        query = """
+        SELECT 
+            state, 
+            COUNT(storeID) AS storeCount
+        FROM 
+            stores
+        GROUP BY 
+            state
+        ORDER BY 
+            state;
+        """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch store count per state data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /stores_per_state endpoint: {e}")
+        return jsonify({"error": "Error fetching store count per state data"}), 500
+
+
+
+
 if __name__ == '__main__':
     app.run(port=8085, debug=True)
