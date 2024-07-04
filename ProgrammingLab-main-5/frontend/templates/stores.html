@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        nav {
+            width: 200px;
+            background-color: #483d8b;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            position: fixed;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        nav a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin: 10px 0;
+            padding: 10px 0;
+            width: 100%;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+
+        nav a:hover {
+            background-color: #dda0dd;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            width: calc(100% - 250px);
+        }
+
+        .button-group {
+            margin: 20px 0;
+        }
+
+        .button-group button {
+            margin: 10px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #fff;
+            color: #000;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+            border: 1px solid #ddd;
+        }
+
+        .button-group button:hover {
+            background-color: #ddd;
+        }
+
+        .button-group button.active {
+            background-color: #8A2BE2;
+            color: #fff;
+        }
+
+        .filter-container {
+            margin-bottom: 20px;
+        }
+
+        #map {
+            height: 200px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        #total-revenue-chart-container {
+            margin-bottom: 20px;
+            height: 300px; /* Reduziert die Höhe auf die Hälfte */
+        }
+
+        #total-revenue-chart {
+            width: 100%;
+            height: 100%; /* Damit das Canvas-Element die Größe des Containers einnimmt */
+        }
+
+        #year-filter-container, #month-filter-container, #week-filter-container {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/orders" id="orders-link">Orders</a>
+        <a href="/customer" id="customer-link">Customer</a>
+        <a href="/categories" id="categories-link">Categories</a>
+        <a href="/products" id="products-link">Products</a>
+        <a href="/sales">Sales</a>
+        <a href="/stores">Stores</a>
+    </nav>
+    <div class="main-content">
+        <h3>Sales Dashboard</h3>
+        <div class="filter-container">
+            <label for="storeSelect">Store:</label>
+            <select id="storeSelect">
+                <option value="all">All Stores</option>
+            </select>
+        </div>
+        <div id="total-revenue-chart-container" class="chart-container">
+            <canvas id="total-revenue-chart"></canvas>
+        </div>
+        <div id="map"></div>
+        <div class="button-group">
+            <button id="sales-trends">Sales Trends</button>
+            <button id="category-sales">Category Sales</button>
+            <button id="store-profitability">Store Profitability</button>
+            <button id="product-preferences">Product Preferences</button>
+        </div>
+        <div id="year-filter-container">
+            <label for="year-select">Select Year:</label>
+            <select id="year-select"></select>
+        </div>
+        <div id="month-filter-container">
+            <label for="month-select">Select Month:</label>
+            <select id="month-select"></select>
+        </div>
+        <div id="week-filter-container">
+            <label for="week-select">Select Week:</label>
+            <select id="week-select"></select>
+        </div>
+        <div class="chart-container" id="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+    <script>
+        let chartInstance;
+        let map;
+        let markers = [];
+        const storeData = new Map();
+
+        document.addEventListener('DOMContentLoaded', function () {
+            fetchStores();
+            fetchTotalRevenue();
+            document.getElementById('storeSelect').addEventListener('change', function () {
+                const selectedStoreID = this.value;
+                if (selectedStoreID === 'all') {
+                    map.fitBounds(markers.map(marker => marker.getLatLng()));
+                } else {
+                    updateMap(selectedStoreID);
+                }
+                const activeButton = document.querySelector('.button-group button.active');
+                if (activeButton) {
+                    fetchAndRenderData(activeButton.id);
+                }
+            });
+        });
+
+        document.querySelectorAll('.button-group button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById('year-filter-container').style.display = 'none';
+                document.getElementById('month-filter-container').style.display = 'none';
+                document.getElementById('week-filter-container').style.display = 'none';
+                if (button.id === 'product-preferences') {
+                    document.getElementById('year-filter-container').style.display = 'block';
+                    document.getElementById('month-filter-container').style.display = 'block';
+                    document.getElementById('week-filter-container').style.display = 'block';
+                    loadFilters();
+                }
+                fetchAndRenderData(button.id);
+            });
+        });
+
+        document.getElementById('year-select').addEventListener('change', fetchAndRenderDataFromFilters);
+        document.getElementById('month-select').addEventListener('change', fetchAndRenderDataFromFilters);
+        document.getElementById('week-select').addEventListener('change', fetchAndRenderDataFromFilters);
+
+        function fetchAndRenderDataFromFilters() {
+            const activeButton = document.querySelector('.button-group button.active');
+            if (activeButton) {
+                fetchAndRenderData(activeButton.id);
+            }
+        }
+
+        function fetchStores() {
+            fetch('/store_locations')
+                .then(response => response.json())
+                .then(data => {
+                    const storeSelect = document.getElementById('storeSelect');
+                    const sortedStores = data.store_data.sort((a, b) => a.state.localeCompare(b.state));
+                    sortedStores.forEach(store => {
+                        const option = document.createElement('option');
+                        option.value = store.storeID;
+                        option.textContent = `${store.storeID} - ${store.city}, ${store.state}`;
+                        storeSelect.appendChild(option);
+                        storeData.set(store.storeID, store);
+                    });
+                    initializeMap(sortedStores);
+                })
+                .catch(error => console.error('Error fetching store locations:', error));
+        }
+
+        function initializeMap(stores) {
+            if (stores.length === 0) {
+                console.error('No stores data available');
+                return;
+            }
+            const mapCenter = [stores[0].latitude, stores[0].longitude];
+            map = L.map('map').setView(mapCenter, 5); // Initial zoom level to show more area
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            stores.forEach(store => {
+                const marker = L.marker([store.latitude, store.longitude]).addTo(map);
+                marker.bindPopup(`Store ID: ${store.storeID}<br>City: ${store.city}<br>State: ${store.state}`);
+                marker.on('click', () => {
+                    document.getElementById('storeSelect').value = store.storeID;
+                    fetchAndRenderData(document.querySelector('.button-group button.active').id);
+                    map.setView([store.latitude, store.longitude], 13); // Zoom in on store click
+                });
+                markers.push(marker);
+            });
+
+            map.fitBounds(markers.map(marker => marker.getLatLng())); // Fit map to show all markers
+        }
+
+        function updateMap(storeID) {
+            const store = storeData.get(storeID);
+            if (store) {
+                map.setView([store.latitude, store.longitude], 13);
+                markers.forEach(marker => {
+                    if (marker.getPopup().getContent().includes(`Store ID: ${storeID}`)) {
+                        marker.openPopup();
+                    }
+                });
+            } else {
+                map.fitBounds(markers.map(marker => marker.getLatLng())); // Fit map to show all markers
+            }
+        }
+
+        function fetchTotalRevenue() {
+            fetch('/total_revenue')
+                .then(response => response.json())
+                .then(data => {
+                    const sortedData = data.data.sort((a, b) => b.total_revenue - a.total_revenue);
+                    const labels = sortedData.map(item => item.storeID);
+                    const totalRevenue = sortedData.map(item => item.total_revenue);
+
+                    const ctx = document.getElementById('total-revenue-chart').getContext('2d');
+                    const totalRevenueChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Total Revenue',
+                                data: totalRevenue,
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            onClick: (e) => {
+                                const activePoints = totalRevenueChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                                if (activePoints.length) {
+                                    const firstPoint = activePoints[0];
+                                    const storeID = totalRevenueChart.data.labels[firstPoint.index];
+                                    document.getElementById('storeSelect').value = storeID;
+                                    updateMap(storeID);
+                                    fetchAndRenderData(document.querySelector('.button-group button.active').id);
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'Total Revenue by Store'
+                                }
+                            }
+                        }
+                    });
+                    document.getElementById('total-revenue-chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error fetching total revenue:', error));
+        }
+
+        function fetchAndRenderData(endpoint) {
+            const scrollPosition = saveScrollPosition();
+
+            const urlMap = {
+                'sales-trends': '/sales_trends',
+                'category-sales': '/category_sales',
+                'store-profitability': '/store_profitability',
+                'product-preferences': '/product_preferences'
+            };
+
+            const storeID = document.getElementById('storeSelect').value;
+            const year = document.getElementById('year-select').value;
+            const month = document.getElementById('month-select').value;
+            const week = document.getElementById('week-select').value;
+
+            const url = new URL(urlMap[endpoint], window.location.origin);
+            if (storeID && storeID !== 'all') {
+                url.searchParams.append('storeID', storeID);
+            }
+            if (year && year !== 'all') {
+                url.searchParams.append('year', year);
+            }
+            if (month && month !== 'all') {
+                url.searchParams.append('month', month);
+            }
+            if (week && week !== 'all') {
+                url.searchParams.append('week', week);
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    let chartData;
+                    let chartOptions;
+                    const ctx = document.getElementById('chart').getContext('2d');
+
+                    switch (endpoint) {
+                        case 'sales-trends':
+                            chartData = {
+                                labels: aggregateDataByMonth(data.data).map(item => item.date),
+                                datasets: [{
+                                    label: 'Total Sales',
+                                    data: aggregateDataByMonth(data.data).map(item => item.total_sales),
+                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                    borderColor: 'rgba(75, 192, 192, 1)',
+                                    borderWidth: 1
+                                }]
+                            };
+                            chartOptions = {
+                                type: 'line',
+                                data: chartData,
+                                options: {
+                                    scales: {
+                                        y: { beginAtZero: true }
+                                    },
+                                    plugins: {
+                                        title: { display: true, text: 'Sales Trends' }
+                                    }
+                                }
+                            };
+                            break;
+
+                        case 'category-sales':
+                            const categories = [...new Set(data.data.map(item => item.category))];
+                            const categoryData = {};
+                            const pizzaNames = [];
+
+                            data.data.forEach(item => {
+                                if (!categoryData[item.category]) {
+                                    categoryData[item.category] = {};
+                                }
+                                if (!categoryData[item.category][item.product_name]) {
+                                    categoryData[item.category][item.product_name] = 0;
+                                }
+                                categoryData[item.category][item.product_name] += item.total_sales;
+
+                                if (!pizzaNames.includes(item.product_name)) {
+                                    pizzaNames.push(item.product_name);
+                                }
+                            });
+
+                            const colors = {
+                                Classic: [
+                                    'rgba(255, 99, 132, 0.2)',
+                                    'rgba(255, 99, 132, 0.4)',
+                                    'rgba(255, 99, 132, 0.6)',
+                                    'rgba(255, 99, 132, 0.8)'
+                                ],
+                                Specialty: [
+                                    'rgba(255, 159, 64, 0.2)',
+                                    'rgba(255, 159, 64, 0.4)',
+                                    'rgba(255, 159, 64, 0.6)',
+                                    'rgba(255, 159, 64, 0.8)'
+                                ],
+                                Vegetarian: [
+                                    'rgba(75, 192, 192, 0.8)',
+                                    'rgba(75, 192, 192, 0.6)',
+                                    'rgba(75, 192, 192, 0.4)',
+                                    'rgba(75, 192, 192, 0.2)'
+                                ]
+                            };
+
+                            const datasets = pizzaNames.map((pizza, index) => {
+                                const category = data.data.find(item => item.product_name === pizza).category;
+                                let backgroundColor, borderColor;
+
+                                if (category === 'Classic') {
+                                    backgroundColor = colors.Classic[index % colors.Classic.length];
+                                    borderColor = 'rgba(255, 99, 132, 1)';
+                                } else if (category === 'Specialty') {
+                                    backgroundColor = colors.Specialty[index % colors.Specialty.length];
+                                    borderColor = 'rgba(255, 159, 64, 1)';
+                                } else if (category === 'Vegetarian') {
+                                    backgroundColor = colors.Vegetarian[index % colors.Vegetarian.length];
+                                    borderColor = 'rgba(75, 192, 192, 1)';
+                                }
+
+                                return {
+                                    label: pizza,
+                                    data: categories.map(category => categoryData[category][pizza] || 0),
+                                    backgroundColor: backgroundColor,
+                                    borderColor: borderColor,
+                                    borderWidth: 1
+                                };
+                            });
+
+                            chartData = {
+                                labels: categories,
+                                datasets: datasets
+                            };
+
+                            chartOptions = {
+                                type: 'bar',
+                                data: chartData,
+                                options: {
+                                    plugins: {
+                                        title: { display: true, text: 'Category Sales' }
+                                    },
+                                    scales: {
+                                        x: { stacked: true },
+                                        y: { stacked: true, beginAtZero: true }
+                                    }
+                                }
+                            };
+                            break;
+
+                        case 'store-profitability':
+                            chartData = {
+                                labels: aggregateDataByMonth(data.data).map(item => item.date),
+                                datasets: [{
+                                    label: 'Profit',
+                                    data: aggregateDataByMonth(data.data).map(item => item.totalProfit),
+                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    borderWidth: 1
+                                }, {
+                                    label: 'Other Revenue',
+                                    data: aggregateDataByMonth(data.data).map(item => item.totalRevenue - item.totalProfit),
+                                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                                    borderColor: 'rgba(255, 159, 64, 1)',
+                                    borderWidth: 1
+                                }]
+                            };
+                            chartOptions = {
+                                type: 'bar',
+                                data: chartData,
+                                options: {
+                                    scales: {
+                                        y: { beginAtZero: true },
+                                        x: { stacked: true },
+                                        y: { stacked: true }
+                                    },
+                                    plugins: {
+                                        title: { display: true, text: 'Store Profitability' }
+                                    }
+                                }
+                            };
+                            break;
+
+                        case 'product-preferences':
+                            chartData = {
+                                labels: data.data.map(item => item.product_name),
+                                datasets: [{
+                                    label: 'Order Count',
+                                    data: data.data.map(item => item.order_count),
+                                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                    borderColor: 'rgba(153, 102, 255, 1)',
+                                    borderWidth: 1
+                                }]
+                            };
+                            chartOptions = {
+                                type: 'bar',
+                                data: chartData,
+                                options: {
+                                    scales: {
+                                        y: { beginAtZero: true }
+                                    },
+                                    plugins: {
+                                        title: { display: true, text: 'Product Preferences' }
+                                    }
+                                }
+                            };
+                            break;
+
+                        default:
+                            return;
+                    }
+
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+                    chartInstance = new Chart(ctx, chartOptions);
+
+                    document.getElementById('chart-container').style.display = 'block';
+                    restoreScrollPosition(scrollPosition);
+                })
+                .catch(error => {
+                    console.error("Error fetching data:", error);
+                    restoreScrollPosition(scrollPosition);
+                });
+        }
+
+        function loadFilters() {
+            loadYears();
+            loadMonths();
+            loadWeeks();
+        }
+
+        function loadYears() {
+            fetch('/get_years')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('year-select');
+                    select.innerHTML = ''; // Clear existing options
+                    const allOption = document.createElement('option');
+                    allOption.value = 'all';
+                    allOption.text = 'All';
+                    select.appendChild(allOption);
+                    data.years.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year.year;
+                        option.text = year.year;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error loading years:', error));
+        }
+
+        function loadMonths() {
+            fetch('/get_months')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('month-select');
+                    select.innerHTML = ''; // Clear existing options
+                    const allOption = document.createElement('option');
+                    allOption.value = 'all';
+                    allOption.text = 'All';
+                    select.appendChild(allOption);
+                    data.months.forEach(month => {
+                        const option = document.createElement('option');
+                        option.value = month.month;
+                        option.text = month.month;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error loading months:', error));
+        }
+
+        function loadWeeks() {
+            const weeks = [1, 2, 3, 4, 5];
+            const select = document.getElementById('week-select');
+            select.innerHTML = ''; // Clear existing options
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.text = 'All';
+            select.appendChild(allOption);
+            weeks.forEach(week => {
+                const option = document.createElement('option');
+                option.value = week;
+                option.text = `Week ${week}`;
+                select.appendChild(option);
+            });
+        }
+
+        function saveScrollPosition() {
+            return window.scrollY;
+        }
+
+        function restoreScrollPosition(position) {
+            window.scrollTo(0, position);
+        }
+
+        function formatDate(year, month) {
+            const date = new Date(year, month - 1);
+            const options = { year: 'numeric', month: 'short' };
+            return new Intl.DateTimeFormat('en-US', options).format(date);
+        }
+
+        function aggregateDataByMonth(data) {
+            const aggregatedData = {};
+
+            data.forEach(item => {
+                const key = `${item.year}-${item.month}`;
+                if (!aggregatedData[key]) {
+                    aggregatedData[key] = { ...item, date: formatDate(item.year, item.month), totalProfit: 0, totalRevenue: 0, total_sales: 0 };
+                }
+                aggregatedData[key].totalProfit += item.totalProfit;
+                aggregatedData[key].totalRevenue += item.totalRevenue;
+                aggregatedData[key].total_sales += item.total_sales;
+            });
+
+            return Object.values(aggregatedData).sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
+    </script>
+</body>
+
+</html>
