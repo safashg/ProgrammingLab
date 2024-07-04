@@ -2,34 +2,87 @@ from flask import Flask, render_template, request, jsonify
 import pymysql
 import pandas as pd
 import logging
+import joblib
+import pandas as pd
+import logging
+import os
+import hashlib
 
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
+app.jinja_env.auto_reload = True
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("query_log.log"),
+        logging.StreamHandler()
+    ]
+)
 
+log = logging.getLogger(__name__)
+
+def generate_cache_key(query, params):
+    hash_object = hashlib.md5()
+    hash_object.update(query.encode('utf-8'))
+    if params:
+        hash_object.update(str(params).encode('utf-8'))
+    return hash_object.hexdigest()
+
+# Create a directory for caching if it doesn't exist
+cache_dir = 'query_cache'
+os.makedirs(cache_dir, exist_ok=True)
+
+def get_db_connection():
+    try:
+        connection = pymysql.connect(
+            host='127.0.0.1',
+            user='root',
+            password='password',
+            database='pizzadaten',
+            port=3307,
+        )
+        logging.info("Database connection established successfully")
+        return connection
+    except Exception as e:
+        logging.error(f"Error establishing database connection: {e}")
+        raise
+
+def execute_query(query, params=None):
+    """Hilfsfunktion zur Ausführung von SQL-Abfragen und Rückgabe als DataFrame"""
+    try:
+        # Generate a unique cache key for the query and parameters
+        cache_key = generate_cache_key(query, params)
+        cache_path = os.path.join(cache_dir, cache_key + '.pkl')
+
+        # Check if the result is already cached
+        if os.path.exists(cache_path):
+            df = joblib.load(cache_path)
+            logging.info(f"Loaded cached result")
+        else:
+            with get_db_connection() as conn:
+                if params:
+                    df = pd.read_sql(query, conn, params=params)
+                else:
+                    df = pd.read_sql(query, conn)
+            # Cache the result
+            joblib.dump(df, cache_path)
+            logging.info(f"Cached result for query")
+
+        return df
+    except Exception as e:
+        logging.error(f"Error executing query: {e}")
+        return None
 
 def get_db_connection():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='Karamel2020',
-        database='pizzadata'
+        password='HossiundJazzy3',
+        database='pizzadaten'
     )
     return connection
-
-
-def execute_query(query, params=None):
-    """Hilfsfunktion zur Ausführung von SQL-Abfragen und Rückgabe als DataFrame"""
-    try:
-        with get_db_connection() as conn:
-            if params:
-                df = pd.read_sql(query, conn, params=params)
-            else:
-                df = pd.read_sql(query, conn)
-        return df
-    except Exception as e:
-        logging.error(f"Error executing query: {e}")
-        return None
 
 
 @app.route('/', methods=['GET'])
