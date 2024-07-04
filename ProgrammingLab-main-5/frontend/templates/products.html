@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Products</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         body {
             display: flex;
@@ -96,11 +96,9 @@
             display: none;
             margin-top: 10px;
         }
-        .small-chart {
-            max-width: 600px;
-            max-height: 600px;
-            width: 100%;
-            height: auto;
+        .large-chart {
+            width: 90%;
+            height: 600px;
             margin: auto;
         }
     </style>
@@ -112,6 +110,8 @@
         <a href="/customer" id="customer-link">Customer</a>
         <a href="/categories" id="categories-link">Categories</a>
         <a href="/products" id="products-link">Products</a>
+        <a href="/sales">Sales</a>
+        <a href="/stores">Stores</a>
     </nav>
     <div class="main-content">
         <h3>Product Analysis</h3>
@@ -120,6 +120,7 @@
             <button id="sales-distribution">Sales Distribution</button>
             <button id="orders">Orders</button>
             <button id="financial-insights">Financial Insights</button>
+            <button id="trends-after-launchdate">Trends After Launch Date</button>
         </div>
         <div id="popularity-options" class="sub-options">
             <button id="most-popular-products">Most Popular Products</button>
@@ -148,8 +149,8 @@
             <label for="date-select">Select Date:</label>
             <select id="date-select"></select>
         </div>
-        <div class="chart-container" id="chart-container" style="display: none;">
-            <canvas id="myChart" class="small-chart"></canvas>
+        <div class="chart-container" id="chart-container">
+            <div id="salesChart" class="large-chart"></div>
         </div>
     </div>
     <script>
@@ -208,6 +209,51 @@
             });
         });
 
+        document.getElementById('trends-after-launchdate').addEventListener('click', () => {
+            document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('trends-after-launchdate').classList.add('active');
+            document.getElementById('chart-container').style.display = 'block';
+            document.getElementById('week-select-container').style.display = 'none';
+            document.getElementById('date-select-container').style.display = 'none';
+
+            fetch('/sales_data')
+                .then(response => response.json())
+                .then(data => {
+                    const traces = {};
+
+                    data.data.forEach(item => {
+                        const date = `${item.year}-${String(item.month).padStart(2, '0')}`;
+
+                        if (!traces[item.product_name]) {
+                            traces[item.product_name] = {
+                                x: [],
+                                y: [],
+                                mode: 'lines',
+                                name: item.product_name,
+                                line: { width: 2 }
+                            };
+                        }
+                        traces[item.product_name].x.push(date);
+                        traces[item.product_name].y.push(item.total_sales);
+                    });
+
+                    const plotData = Object.values(traces);
+
+                    Plotly.newPlot('salesChart', plotData, {
+                        title: 'Sales Over Time',
+                        xaxis: {
+                            title: 'Month',
+                            type: 'date',
+                            tickformat: '%b %Y',
+                            dtick: 'M3'
+                        },
+                        yaxis: { title: 'Total Sales', tickformat: ',.0' },
+                        showlegend: true
+                    });
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        });
+
         function loadYearWeeks() {
             fetch('/popular_pizza_by_week_only_weeks')
                 .then(response => response.json())
@@ -223,12 +269,12 @@
 
                     // Add event listener to update chart on selection change
                     weekSelect.addEventListener('change', () => {
-                        loadPopularPizzaByWeekChartData('/popular_pizza_by_week', weekSelect.value, '#D8BFD8');
+                        loadPopularPizzaByWeekChartData('/popular_pizza_by_week', weekSelect.value);
                     });
 
                     // Load the chart with the first week by default
                     if (data.data.length > 0) {
-                        loadPopularPizzaByWeekChartData('/popular_pizza_by_week', data.data[0].yearWeek, '#D8BFD8');
+                        loadPopularPizzaByWeekChartData('/popular_pizza_by_week', data.data[0].yearWeek);
                     }
 
                     document.getElementById('week-select-container').style.display = 'block';
@@ -236,7 +282,7 @@
                 .catch(error => console.error('Error loading week data:', error));
         }
 
-        function loadPopularPizzaByWeekChartData(url, yearWeek, color) {
+        function loadPopularPizzaByWeekChartData(url, yearWeek) {
             fetch(`${url}?yearWeek=${yearWeek}`)
                 .then(response => response.json())
                 .then(data => {
@@ -261,7 +307,7 @@
                             datasets: [{
                                 label: 'Total Quantity',
                                 data: values,
-                                backgroundColor: color,
+                                backgroundColor: '#D8BFD8',
                                 borderWidth: 0 // No border
                             }]
                         },
@@ -585,12 +631,12 @@
                 .then(response => response.json())
                 .then(data => {
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
-                    const sizes = ['Small', 'Medium', 'Large', 'Extra Large']; // Anpassung der Labels
+                    const sizes = [...new Set(data.data.map(item => item.Size))];
                     const datasets = sizes.map((size, index) => {
                         return {
                             label: size,
                             data: pizzas.map(pizza => {
-                                const item = data.data.find(d => d.Name === pizza && d.Size === size); // Anpassung für case-insensitive Vergleich
+                                const item = data.data.find(d => d.Name === pizza && d.Size === size);
                                 return item ? item.profit : 0;
                             }),
                             backgroundColor: customColors[index % customColors.length],
