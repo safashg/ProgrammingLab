@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Products</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             display: flex;
@@ -37,7 +38,7 @@
             background-color: #dda0dd;
         }
         .main-content {
-            margin-left: 250px;
+            margin-left: 200px;
             padding: 20px;
             flex-grow: 1;
         }
@@ -101,6 +102,11 @@
             height: 600px;
             margin: auto;
         }
+        .small-chart {
+            width: 60%;
+            height: 400px;
+            margin: auto;
+        }
     </style>
 </head>
 <body>
@@ -150,7 +156,8 @@
             <select id="date-select"></select>
         </div>
         <div class="chart-container" id="chart-container">
-            <div id="salesChart" class="large-chart"></div>
+            <canvas id="chartjsChart" class="large-chart"></canvas>
+            <div id="plotlyChart" class="large-chart" style="display: none;"></div>
         </div>
     </div>
     <script>
@@ -166,7 +173,8 @@
                     chartInstance.destroy();
                     chartInstance = null;
                 }
-                document.getElementById('chart-container').style.display = 'none';
+                document.getElementById('chartjsChart').style.display = 'none';
+                document.getElementById('plotlyChart').style.display = 'none';
                 document.getElementById('week-select-container').style.display = 'none';
                 document.getElementById('date-select-container').style.display = 'none';
                 const options = document.getElementById(button.id + '-options');
@@ -181,7 +189,9 @@
                 document.querySelectorAll('.sub-options button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
                 document.getElementById('chart-container').style.display = 'block';
-                document.getElementById('week-select-container').style.display = 'none'; // Hide week select container by default
+                document.getElementById('week-select-container').style.display = 'none';
+                document.getElementById('plotlyChart').style.display = 'none';
+                document.getElementById('chartjsChart').style.display = 'block';
 
                 if (button.id === 'most-popular-products') {
                     loadChartData('/most_popular_products', 'Most Popular Products', 'Most Popular Products', 'bar', '#D8BFD8');
@@ -215,10 +225,13 @@
             document.getElementById('chart-container').style.display = 'block';
             document.getElementById('week-select-container').style.display = 'none';
             document.getElementById('date-select-container').style.display = 'none';
+            document.getElementById('chartjsChart').style.display = 'none';
+            document.getElementById('plotlyChart').style.display = 'block';
 
             fetch('/sales_data')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Fetched sales data:', data);
                     const traces = {};
 
                     data.data.forEach(item => {
@@ -237,9 +250,11 @@
                         traces[item.product_name].y.push(item.total_sales);
                     });
 
+                    console.log('Traces:', traces);
+
                     const plotData = Object.values(traces);
 
-                    Plotly.newPlot('salesChart', plotData, {
+                    Plotly.newPlot('plotlyChart', plotData, {
                         title: 'Sales Over Time',
                         xaxis: {
                             title: 'Month',
@@ -258,8 +273,9 @@
             fetch('/popular_pizza_by_week_only_weeks')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Weeks data:', data);
                     const weekSelect = document.getElementById('week-select');
-                    weekSelect.innerHTML = ''; // Clear the dropdown
+                    weekSelect.innerHTML = '';
                     data.data.forEach(week => {
                         const option = document.createElement('option');
                         option.value = week.yearWeek;
@@ -267,12 +283,10 @@
                         weekSelect.appendChild(option);
                     });
 
-                    // Add event listener to update chart on selection change
                     weekSelect.addEventListener('change', () => {
                         loadPopularPizzaByWeekChartData('/popular_pizza_by_week', weekSelect.value);
                     });
 
-                    // Load the chart with the first week by default
                     if (data.data.length > 0) {
                         loadPopularPizzaByWeekChartData('/popular_pizza_by_week', data.data[0].yearWeek);
                     }
@@ -286,6 +300,7 @@
             fetch(`${url}?yearWeek=${yearWeek}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Chart data:', data);
                     let labels = [];
                     let values = [];
 
@@ -294,7 +309,7 @@
                         values.push(item.TotalQuantity);
                     });
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     const ctx = canvas.getContext('2d');
                     if (chartInstance) {
                         chartInstance.destroy();
@@ -308,7 +323,7 @@
                                 label: 'Total Quantity',
                                 data: values,
                                 backgroundColor: '#D8BFD8',
-                                borderWidth: 0 // No border
+                                borderWidth: 0
                             }]
                         },
                         options: {
@@ -342,6 +357,7 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Data fetched:', data);
                     let labels = [];
                     let values = [];
 
@@ -362,7 +378,10 @@
                         values = data.data.map(item => item.Frequency || item.TotalQuantity);
                     }
 
-                    const canvas = document.getElementById('myChart');
+                    console.log('Labels:', labels);
+                    console.log('Values:', values);
+
+                    const canvas = document.getElementById('chartjsChart');
                     if (isPie) {
                         canvas.classList.add('small-chart');
                     } else {
@@ -382,7 +401,7 @@
                                 label: label,
                                 data: values,
                                 backgroundColor: isPie ? customColors : color,
-                                borderWidth: 0 // No border
+                                borderWidth: 0
                             }]
                         },
                         options: {
@@ -422,8 +441,9 @@
             fetch('/sales_trend_by_size_only_date')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Order dates:', data);
                     const dateSelect = document.getElementById('date-select');
-                    dateSelect.innerHTML = ''; // Clear the dropdown
+                    dateSelect.innerHTML = '';
                     data.data.forEach(orderDate => {
                         const option = document.createElement('option');
                         option.value = orderDate;
@@ -431,12 +451,10 @@
                         dateSelect.appendChild(option);
                     });
 
-                    // Add event listener to update chart on selection change
                     dateSelect.addEventListener('change', () => {
                         loadSalesTrendBySizeChartData('/sales_trend_by_size', dateSelect.value, '#D8BFD8');
                     });
 
-                    // Load the chart with the first orderDate by default
                     if (data.data.length > 0) {
                         loadSalesTrendBySizeChartData('/sales_trend_by_size', data.data[0], '#D8BFD8');
                     }
@@ -456,7 +474,7 @@
                     let labels = filteredData.map(item => item.Size);
                     let values = filteredData.map(item => item.TotalQuantity);
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     const ctx = canvas.getContext('2d');
                     if (chartInstance) {
                         chartInstance.destroy();
@@ -470,7 +488,7 @@
                                 label: 'Total Quantity',
                                 data: values,
                                 backgroundColor: color,
-                                borderWidth: 0 // No border
+                                borderWidth: 0
                             }]
                         },
                         options: {
@@ -504,13 +522,14 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Weekly sales distribution data:', data);
                     const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                     const products = [...new Set(data.data.map(item => item.ProductName))];
                     let datasets = products.map((product, index) => ({
                         label: product,
                         data: new Array(7).fill(0),
                         backgroundColor: customColors[index % customColors.length],
-                        borderWidth: 0 // No border
+                        borderWidth: 0
                     }));
 
                     data.data.forEach(item => {
@@ -528,11 +547,12 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Product order share data:', data);
                     const labels = data.data.map(item => item.ProductName);
                     const values = data.data.map(item => item.Frequency);
                     const percentages = data.data.map(item => item.Percentage);
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     canvas.classList.add('small-chart');
 
                     const ctx = canvas.getContext('2d');
@@ -548,7 +568,7 @@
                                 label: label,
                                 data: values,
                                 backgroundColor: customColors,
-                                borderWidth: 0 // No border
+                                borderWidth: 0
                             }]
                         },
                         options: {
@@ -579,11 +599,12 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Category order share data:', data);
                     const labels = data.data.map(item => item.Category);
                     const values = data.data.map(item => item.TotalFrequency);
                     const percentages = data.data.map(item => item.Percentage);
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     canvas.classList.add('small-chart');
 
                     const ctx = canvas.getContext('2d');
@@ -599,7 +620,7 @@
                                 label: label,
                                 data: values,
                                 backgroundColor: customColors,
-                                borderWidth: 0 // No border
+                                borderWidth: 0
                             }]
                         },
                         options: {
@@ -630,6 +651,7 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Total profit per pizza data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
                     const sizes = [...new Set(data.data.map(item => item.Size))];
                     const datasets = sizes.map((size, index) => {
@@ -640,11 +662,11 @@
                                 return item ? item.profit : 0;
                             }),
                             backgroundColor: customColors[index % customColors.length],
-                            borderWidth: 0 // No border
+                            borderWidth: 0
                         };
                     });
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     const ctx = canvas.getContext('2d');
                     if (chartInstance) {
                         chartInstance.destroy();
@@ -691,6 +713,7 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Cost structure per pizza data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
                     const sizes = [...new Set(data.data.map(item => item.Size))];
                     const datasets = sizes.map((size, index) => {
@@ -701,11 +724,11 @@
                                 return item ? item.CostPercentage : 0;
                             }),
                             backgroundColor: customColors[index % customColors.length],
-                            borderWidth: 0 // No border
+                            borderWidth: 0
                         };
                     });
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     const ctx = canvas.getContext('2d');
                     if (chartInstance) {
                         chartInstance.destroy();
@@ -752,6 +775,7 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Margin analysis data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
                     const sizes = [...new Set(data.data.map(item => item.Size))];
                     const datasets = sizes.map((size, index) => {
@@ -762,11 +786,11 @@
                                 return item ? item.ProfitMargin : 0;
                             }),
                             backgroundColor: customColors[index % customColors.length],
-                            borderWidth: 0 // No border
+                            borderWidth: 0
                         };
                     });
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     const ctx = canvas.getContext('2d');
                     if (chartInstance) {
                         chartInstance.destroy();
@@ -813,6 +837,7 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Cost efficiency data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
                     const sizes = [...new Set(data.data.map(item => item.Size))];
                     const datasets = sizes.map((size, index) => {
@@ -823,11 +848,11 @@
                                 return item ? item.CostEfficiency : 0;
                             }),
                             backgroundColor: customColors[index % customColors.length],
-                            borderWidth: 0 // No border
+                            borderWidth: 0
                         };
                     });
 
-                    const canvas = document.getElementById('myChart');
+                    const canvas = document.getElementById('chartjsChart');
                     const ctx = canvas.getContext('2d');
                     if (chartInstance) {
                         chartInstance.destroy();
@@ -871,7 +896,7 @@
         }
 
         function createChart(labels, datasets, title, chartType) {
-            const canvas = document.getElementById('myChart');
+            const canvas = document.getElementById('chartjsChart');
             const ctx = canvas.getContext('2d');
             if (chartInstance) {
                 chartInstance.destroy();
