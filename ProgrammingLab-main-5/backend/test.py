@@ -23,6 +23,16 @@ logging.basicConfig(
 
 log = logging.getLogger(__name__)
 
+def get_db_connection():
+    connection = pymysql.connect(
+        host='localhost',
+        user='root',
+        password='HossiundJazzy3',
+        database='pizzadaten'
+    )
+    return connection
+
+
 def generate_cache_key(query, params):
     hash_object = hashlib.md5()
     hash_object.update(query.encode('utf-8'))
@@ -34,20 +44,6 @@ def generate_cache_key(query, params):
 cache_dir = 'query_cache'
 os.makedirs(cache_dir, exist_ok=True)
 
-def get_db_connection():
-    try:
-        connection = pymysql.connect(
-            host='127.0.0.1',
-            user='root',
-            password='password',
-            database='pizzadaten',
-            port=3307,
-        )
-        logging.info("Database connection established successfully")
-        return connection
-    except Exception as e:
-        logging.error(f"Error establishing database connection: {e}")
-        raise
 
 def execute_query(query, params=None):
     """Hilfsfunktion zur Ausführung von SQL-Abfragen und Rückgabe als DataFrame"""
@@ -74,15 +70,6 @@ def execute_query(query, params=None):
     except Exception as e:
         logging.error(f"Error executing query: {e}")
         return None
-
-def get_db_connection():
-    connection = pymysql.connect(
-        host='localhost',
-        user='root',
-        password='HossiundJazzy3',
-        database='pizzadaten'
-    )
-    return connection
 
 
 @app.route('/', methods=['GET'])
