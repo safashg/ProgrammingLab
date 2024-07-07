@@ -27,8 +27,8 @@ def get_db_connection():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='HossiundJazzy3',
-        database='pizzadaten'
+        password='Karamel2020',
+        database='pizzadata'
     )
     return connection
 
@@ -76,14 +76,14 @@ def execute_query(query, params=None):
 def index():
     return render_template('index.html')
 
+@app.route('/stores', methods=['GET'])
+def stores():
+    return render_template('stores.html')
 
 @app.route('/orders', methods=['GET'])
 def orders():
     return render_template('orders.html')
-    
-@app.route('/stores', methods=['GET'])
-def stores():
-    return render_template('stores.html')
+
 
 @app.route('/customer', methods=['GET'])
 def customer():
@@ -966,18 +966,20 @@ def category_order_share():
 def product_order_share():
     """Endpunkt für den Anteil jedes Produktnamens an Anzahl der gesamten Bestellungen -> Kreisdiagramm"""
     try:
-        query = """
+        category = request.args.get('category')
+        query = f"""
                 SELECT 
                     ProductName, 
                     Category, 
                     Frequency,
                     ROUND(100.0 * Frequency / (SELECT SUM(Frequency) FROM product_order_frequency), 2) AS Percentage
                 FROM product_order_frequency
+                WHERE Category = '{category}'
                 ORDER BY Percentage DESC;
             """
         df = execute_query(query)
         if df is None:
-            return jsonify({"error": "Failed to fetch product order share data"}), 500
+            return jsonify({"error": f"Failed to fetch product order share data for category {category}"}), 500
 
         data = df.to_dict(orient='records')
         return jsonify(data=data)
@@ -2123,4 +2125,4 @@ def stores_per_state():
 
 
 if __name__ == '__main__':
-    app.run(port=8085, debug=True)
+    app.run(port=8080, debug=True)
