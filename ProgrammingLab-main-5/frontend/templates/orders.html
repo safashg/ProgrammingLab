@@ -865,6 +865,12 @@
                 })
                 .catch(error => console.error('Error loading order months:', error));
         }
+        
+        window.addEventListener('DOMContentLoaded', (event) => {
+            if (window.location.pathname === '/orders') {
+                document.getElementById('sales-figures').click();
+            }
+        });
     </script>
 </body>
 </html>
