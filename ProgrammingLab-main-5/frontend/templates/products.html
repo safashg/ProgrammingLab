@@ -138,7 +138,6 @@
         </div>
         <div id="orders-options" class="sub-options">
             <button id="category-share-of-total-orders">Category Share of Total Orders</button>
-            <button id="product-share-of-total-orders">Product Share of Total Orders</button>
         </div>
         <div id="financial-insights-options" class="sub-options">
             <button id="total-profit-per-pizza">Total Profit per Pizza</button>
@@ -204,8 +203,6 @@
                     loadOrderDates();
                 } else if (button.id === 'category-share-of-total-orders') {
                     loadCategoryOrderShareChartData('/category_order_share', 'Category Share of Total Orders', 'Category Share of Total Orders', 'pie', true);
-                } else if (button.id === 'product-share-of-total-orders') {
-                    loadProductOrderShareChartData('/product_order_share', 'Product Share of Total Orders', 'Product Share of Total Orders', 'pie', true);
                 } else if (button.id === 'total-profit-per-pizza') {
                     loadTotalProfitPerPizzaChartData('/total_profit_per_pizza', 'Total Profit per Pizza', 'Total Profit per Pizza', 'bar');
                 } else if (button.id === 'cost-structure-per-pizza') {
@@ -432,6 +429,24 @@
                     });
 
                     document.getElementById('chart-container').style.display = 'block';
+
+                    if (url === '/category_order_share') {
+                        document.getElementById('chartjsChart').onclick = function(evt) {
+                            var activePoints = chartInstance.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+                            if (activePoints.length) {
+                                var firstPoint = activePoints[0];
+                                var label = chartInstance.data.labels[firstPoint.index];
+                                console.log('Label:', label);
+                                if (label === 'Classic') {
+                                    loadProductOrderShareChartData('/product_order_share', 'Classic Products', 'Classic Products Share', 'pie', true, 'Classic');
+                                } else if (label === 'Specialty') {
+                                    loadProductOrderShareChartData('/product_order_share', 'Specialty Products', 'Specialty Products Share', 'pie', true, 'Specialty');
+                                } else if (label === 'Vegetarian') {
+                                    loadProductOrderShareChartData('/product_order_share', 'Vegetarian Products', 'Vegetarian Products Share', 'pie', true, 'Vegetarian');
+                                }
+                            }
+                        };
+                    }
                 })
                 .catch(error => console.error('Error loading chart data:', error));
         }
@@ -542,14 +557,18 @@
                 .catch(error => console.error('Error loading chart data:', error));
         }
 
-        function loadProductOrderShareChartData(url, label, title, chartType) {
-            fetch(url)
+        function loadProductOrderShareChartData(url, label, title, chartType, specificProducts = false, category = '') {
+            fetch(`${url}?category=${category}`)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Product order share data:', data);
-                    const labels = data.data.map(item => item.ProductName);
-                    const values = data.data.map(item => item.Frequency);
-                    const percentages = data.data.map(item => item.Percentage);
+                    let labels = [];
+                    let values = [];
+
+                    data.data.forEach(item => {
+                        labels.push(item.ProductName);
+                        values.push(item.Frequency);
+                    });
 
                     const canvas = document.getElementById('chartjsChart');
                     canvas.classList.add('small-chart');
@@ -580,7 +599,7 @@
                                     callbacks: {
                                         label: function(context) {
                                             const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
-                                            const percentage = percentages[context.dataIndex];
+                                            const percentage = ((context.raw / total) * 100).toFixed(2);
                                             return `${context.label}: ${context.raw} (${percentage}%)`;
                                         }
                                     }
@@ -642,6 +661,23 @@
                     });
 
                     document.getElementById('chart-container').style.display = 'block';
+
+                    // Add event listener to the chart
+                    document.getElementById('chartjsChart').onclick = function(evt) {
+                        var activePoints = chartInstance.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+                        if (activePoints.length) {
+                            var firstPoint = activePoints[0];
+                            var label = chartInstance.data.labels[firstPoint.index];
+                            console.log('Label:', label);
+                            if (label === 'Classic') {
+                                loadProductOrderShareChartData('/product_order_share', 'Classic Products', 'Classic Products Share', 'pie', true, 'Classic');
+                            } else if (label === 'Specialty') {
+                                loadProductOrderShareChartData('/product_order_share', 'Specialty Products', 'Specialty Products Share', 'pie', true, 'Specialty');
+                            } else if (label === 'Vegetarian') {
+                                loadProductOrderShareChartData('/product_order_share', 'Vegetarian Products', 'Vegetarian Products Share', 'pie', true, 'Vegetarian');
+                            }
+                        }
+                    };
                 })
                 .catch(error => console.error('Error loading chart data:', error));
         }
