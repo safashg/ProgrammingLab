@@ -388,6 +388,19 @@
                 })
                 .catch(error => console.error('Error loading chart data:', error));
         }
+
+        window.addEventListener('DOMContentLoaded', (event) => {
+            if (window.location.pathname === '/categories') {
+
+                document.getElementById('categories').click();
+
+                const firstSubButton = document.getElementById('category-comparison');
+                if (firstSubButton) {
+                    firstSubButton.click();
+                }
+            }
+        });
+
     </script>
 </body>
 </html>
