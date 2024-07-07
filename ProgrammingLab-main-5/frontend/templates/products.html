@@ -937,6 +937,18 @@
 
             document.getElementById('chart-container').style.display = 'block';
         }
+
+        window.addEventListener('DOMContentLoaded', (event) => {
+            if (window.location.pathname === '/products') {
+
+                document.getElementById('popularity').click();
+
+                const firstSubButton = document.getElementById('most-popular-products');
+                if (firstSubButton) {
+                    firstSubButton.click();
+                }
+            }
+        });
     </script>
 </body>
 </html>
