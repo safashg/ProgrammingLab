@@ -80,7 +80,10 @@ def index():
 @app.route('/orders', methods=['GET'])
 def orders():
     return render_template('orders.html')
-
+    
+@app.route('/stores', methods=['GET'])
+def stores():
+    return render_template('stores.html')
 
 @app.route('/customer', methods=['GET'])
 def customer():
