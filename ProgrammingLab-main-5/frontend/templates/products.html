@@ -688,7 +688,7 @@
                 .then(data => {
                     console.log('Total profit per pizza data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
-                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const sizes = ['Small', 'Medium', 'Large', 'Extra Large'];
                     const datasets = sizes.map((size, index) => {
                         return {
                             label: size,
@@ -750,7 +750,7 @@
                 .then(data => {
                     console.log('Cost structure per pizza data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
-                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const sizes = ['Small', 'Medium', 'Large', 'Extra Large'];
                     const datasets = sizes.map((size, index) => {
                         return {
                             label: size,
@@ -812,7 +812,7 @@
                 .then(data => {
                     console.log('Margin analysis data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
-                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const sizes = ['Small', 'Medium', 'Large', 'Extra Large'];
                     const datasets = sizes.map((size, index) => {
                         return {
                             label: size,
@@ -874,7 +874,7 @@
                 .then(data => {
                     console.log('Cost efficiency data:', data);
                     const pizzas = [...new Set(data.data.map(item => item.Name))];
-                    const sizes = [...new Set(data.data.map(item => item.Size))];
+                    const sizes = ['Small', 'Medium', 'Large', 'Extra Large'];
                     const datasets = sizes.map((size, index) => {
                         return {
                             label: size,
