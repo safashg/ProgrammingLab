@@ -742,7 +742,14 @@ def seasonal_order_analysis():
                 storeID, 
                 TotalOrders,
                 EXTRACT(MONTH FROM OrderDate) AS Month,
-                EXTRACT(DAY FROM OrderDate) AS Day
+                EXTRACT(DAY FROM OrderDate) AS Day,
+                CASE 
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (12, 1, 2) THEN 'Winter'
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (3, 4, 5) THEN 'Spring'
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (6, 7, 8) THEN 'Summer'
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (9, 10, 11) THEN 'Fall'
+                    ELSE 'Unknown'
+                END AS Season
             FROM TopOrderDates
             ORDER BY TotalOrders DESC, OrderDate, storeID;
         """
@@ -756,27 +763,49 @@ def seasonal_order_analysis():
         logging.error(f"Error in /seasonal_order_analysis endpoint: {e}")
         return jsonify({"error": "Error fetching seasonal order analysis data"}), 500
 
+@app.route('/seasonal_order_details', methods=['GET'])
+def seasonal_order_details():
+    """Endpoint for seasonal order details"""
+    try:
+        season = request.args.get('season')
+        if not season:
+            return jsonify({"error": "Season parameter is required"}), 400
+
+        query = f"""
+            SELECT 
+                OrderDate, 
+                storeID, 
+                TotalOrders
+            FROM TopOrderDates
+            WHERE CASE 
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (12, 1, 2) THEN 'Winter'
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (3, 4, 5) THEN 'Spring'
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (6, 7, 8) THEN 'Summer'
+                    WHEN EXTRACT(MONTH FROM OrderDate) IN (9, 10, 11) THEN 'Fall'
+                    ELSE 'Unknown'
+                END = %s
+            ORDER BY TotalOrders DESC, OrderDate, storeID;
+        """
+        df = execute_query(query, params=[season])
+        if df is None:
+            return jsonify({"error": "Failed to fetch seasonal order details data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /seasonal_order_details endpoint: {e}")
+        return jsonify({"error": "Error fetching seasonal order details data"}), 500
+
 
 @app.route('/holiday_order_analysis', methods=['GET'])
 def holiday_order_analysis():
     """Endpunkt für die Analyse von Bestellungen an Feiertagen"""
     try:
-        holidays = [
-            '2021-01-01', '2021-01-18', '2021-02-15', '2021-04-02', '2021-04-04', '2021-05-31', '2021-06-19',
-            '2021-07-04', '2021-09-06', '2021-10-11', '2021-11-11', '2021-11-25', '2021-12-24', '2021-12-25',
-            '2021-12-31',
-            '2022-01-01', '2022-01-17', '2022-02-21', '2022-04-15', '2022-04-17', '2022-05-30', '2022-06-19',
-            '2022-07-04', '2022-09-05', '2022-10-10', '2022-11-11', '2022-11-24', '2022-12-24', '2022-12-25',
-            '2022-12-31'
-        ]  # Liste der Feiertage
-
-        holidays_str = ', '.join(f"'{h}'" for h in holidays)
-
         query = f"""
-            SELECT OrderDate, storeID, TotalOrders
+           SELECT OrderDate, storeID, TotalOrders, HolidayName
             FROM TopOrderDates
-            WHERE OrderDate IN ({holidays_str})
-            ORDER BY OrderDate, storeID;
+            WHERE HolidayName IS NOT NULL
+            ORDER BY HolidayName, OrderDate;
         """
         df = execute_query(query)
         if df is None:
@@ -2101,15 +2130,10 @@ def stores_per_state():
     """Endpoint to fetch store count per state"""
     try:
         query = """
-        SELECT 
-            state, 
-            COUNT(storeID) AS storeCount
-        FROM 
-            stores
-        GROUP BY 
-            state
-        ORDER BY 
-            state;
+        SELECT state, COUNT(storeID) AS storeCount
+        FROM stores
+        GROUP BY state
+        ORDER BY state;
         """
         df = execute_query(query)
         if df is None:
