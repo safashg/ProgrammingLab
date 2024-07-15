@@ -89,18 +89,6 @@
             margin-top: 20px;
             position: relative;
         }
-        .chart-tooltip {
-            position: absolute;
-            top: -12px;
-            left: 0;
-            font-size: 12px;
-            color: black;
-            background-color: rgba(230, 230, 250, 0.8);
-            border: 1px solid black;
-            border-radius: 3px;
-            padding: 5px;
-            white-space: nowrap;
-        }
         .secondary-chart-container {
             margin-top: 20px;
         }
@@ -146,7 +134,6 @@
             <button id="order-activity-month">Order activity per month</button>
         </div>
         <div class="chart-container" id="chart-container" style="display: none;">
-            <div class="chart-tooltip" id="chart-tooltip">Click on a bar for more information</div>
             <div id="interval-select-container">
                 <label for="interval-select">Select Interval:</label>
                 <select id="interval-select">
@@ -242,10 +229,7 @@
                 document.getElementById('week-filter-container').style.display = 'none';
 
                 if (button.id === 'total-sales-per-store') {
-                    document.getElementById('chart-tooltip').style.display = 'block';
                     loadChartData('/total_items_sold_per_store', 'Total Items Sold', 'Total sales figures per store', null, 'bar', addChartClickHandler);
-                } else {
-                    document.getElementById('chart-tooltip').style.display = 'none';
                 }
 
                 if (button.id === 'revenue-and-profit-per-month') {
