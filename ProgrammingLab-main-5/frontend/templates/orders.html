@@ -123,6 +123,7 @@
         <a href="/categories" id="categories-link">Categories</a>
         <a href="/products" id="products-link">Products</a>
         <a href="/stores" id="stores-link">Stores</a>
+        <a href="/list" id="list-link">Cost Overview</a>
     </nav>
     <div class="main-content">
         <h3>Order Analysis</h3>
@@ -865,7 +866,7 @@
                 })
                 .catch(error => console.error('Error loading order months:', error));
         }
-        
+
         window.addEventListener('DOMContentLoaded', (event) => {
             if (window.location.pathname === '/orders') {
                 document.getElementById('sales-figures').click();
