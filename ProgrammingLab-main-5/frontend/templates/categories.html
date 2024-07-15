@@ -101,6 +101,7 @@
             width: 100%;
             height: 500px;
             margin-top: 20px;
+            display: none;
         }
         #year-select-container, #store-select-container {
             display: none;
@@ -205,6 +206,7 @@
                 detailChartInstance = null;
             }
             document.getElementById('chart-container').style.display = 'none';
+            document.getElementById('detailChart').style.display = 'none';
             document.getElementById('year-select-container').style.display = 'none';
             document.getElementById('interval-select-container').style.display = 'none';
             document.getElementById('store-select-container').style.display = 'none';
@@ -230,14 +232,18 @@
             document.getElementById('chart-container').style.display = 'block';
 
             if (button.id === 'category-comparison') {
+                document.getElementById('detailChart').style.display = 'none';
                 loadChartData('/category_sales_comparison', 'Category Sales Comparison', 'Comparison of category sales between stores', null, 'bar', true);
             } else if (button.id === 'top-categories') {
+                document.getElementById('detailChart').style.display = 'none';
                 loadChartData('/top_categories_per_store', 'Top Categories', 'Top categories per store', null, 'pie', false);
             } else if (button.id === 'seasonal-orders') {
                 loadChartData('/seasonal_order_analysis', 'Seasonal Orders', 'Analysis of seasonal orders');
             } else if (button.id === 'holiday-orders') {
+                document.getElementById('detailChart').style.display = 'none';
                 loadChartData('/holiday_order_analysis', 'Holiday Orders', 'Analysis of orders on holidays');
             } else if (button.id === 'total-sales-category') {
+                document.getElementById('detailChart').style.display = 'none';
                 loadChartData('/total_sales_per_category', 'Total Sales', 'Total sales per category', null, 'pie', false);
             }
         });
@@ -270,14 +276,12 @@
                     'Christmas Day': 'rgba(0, 123, 255, 0.5)', // Blue
                     'New Year\'s Day': 'rgba(40, 167, 69, 0.5)', // Green
                     'Independence Day': 'rgba(255, 193, 7, 0.5)', // Yellow
-                    'Veterans Day': 'rgba(220, 53, 69, 0.5)' // Red
-                    // Füge hier weitere Feiertage und Farben hinzu
                 };
 
                 if (url === '/holiday_order_analysis') {
                     const holidayOrderMap = {};
                     data.data.forEach(item => {
-                        const key = `${item.HolidayName} (${new Date(item.OrderDate).toLocaleDateString('en-GB', { year: 'numeric' })})\n${item.storeID}`;
+                        const key = `${item.storeID}`;
                         if (!holidayOrderMap[key]) {
                             holidayOrderMap[key] = 0;
                         }
@@ -288,11 +292,11 @@
                         label: label,
                         data: Object.values(holidayOrderMap),
                         backgroundColor: labels.map(label => {
-                            const holidayName = label.split(' (')[0];
+                            const holidayName = data.data.find(item => item.storeID === label).HolidayName;
                             return holidayColors[holidayName] || 'rgba(153, 102, 255, 0.2)';
                         }),
                         borderColor: labels.map(label => {
-                            const holidayName = label.split(' (')[0];
+                            const holidayName = data.data.find(item => item.storeID === label).HolidayName;
                             return holidayColors[holidayName] ? holidayColors[holidayName].replace('0.5', '1') : 'rgba(153, 102, 255, 1)';
                         }),
                         borderWidth: 1,
@@ -375,6 +379,18 @@
                         }),
                         backgroundColor: ['rgba(0, 123, 255, 1)', 'rgba(40, 167, 69, 1)', 'rgba(255, 193, 7, 1)', 'rgba(220, 53, 69, 1)']
                     }];
+
+                    document.getElementById('myChart').onclick = function(evt) {
+                        if (document.getElementById('seasonal-orders').classList.contains('active')) {
+                            const activePoints = chartInstance.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+                            if (activePoints.length > 0) {
+                                const index = activePoints[0].index;
+                                const season = labels[index];
+                                const color = datasets[0].backgroundColor[index];
+                                loadSeasonalOrderDetails(season, color);
+                            }
+                        }
+                    };
                 } else if (url === '/total_sales_per_category') {
                     labels = data.data.map(item => item.Category);
                     const dataValues = data.data.map(item => item.TotalPizzasSold);
@@ -467,7 +483,7 @@
             .catch(error => console.error('Error loading chart data:', error));
     }
 
-    function loadSeasonalOrderDetails(season) {
+    function loadSeasonalOrderDetails(season, color) {
         fetch(`/seasonal_order_details?season=${season}`)
             .then(response => response.json())
             .then(data => {
@@ -494,8 +510,8 @@
                         datasets: [{
                             label: `${season} Order Dates`,
                             data: orders,
-                            backgroundColor: 'rgba(0, 123, 255, 0.2)',
-                            borderColor: 'rgba(0, 123, 255, 1)',
+                            backgroundColor: color.replace('1)', '0.2)'),
+                            borderColor: color,
                             borderWidth: 1,
                             fill: true
                         }]
@@ -511,6 +527,7 @@
                         }
                     }
                 });
+                document.getElementById('detailChart').style.display = 'block';
             })
             .catch(error => console.error('Error loading seasonal order details:', error));
     }
