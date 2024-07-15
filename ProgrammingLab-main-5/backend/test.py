@@ -100,6 +100,10 @@ def products():
     return render_template('products.html')
 
 
+@app.route('/list', methods=['GET'])
+def list():
+    return render_template('list.html')
+
 @app.route('/store_locations', methods=['GET'])
 def store_locations():
     """Endpunkt für Standortdaten der Stores"""
@@ -130,6 +134,24 @@ def customer_locations():
     except Exception as e:
         logging.error(f"Error in /customer_locations endpoint: {e}")
         return jsonify({"error": "Error fetching customer locations"}), 500
+
+
+@app.route('/overview', methods=['GET'])
+def overview():
+    try:
+        query = """
+            SELECT Name, Price, Category, Size, Ingredients, production_costs 
+            FROM products
+            """
+        df = execute_query(query)
+        if df is None:
+            return jsonify({"error": "Failed to fetch product overview data"}), 500
+
+        data = df.to_dict(orient='records')
+        return jsonify(data=data)
+    except Exception as e:
+        logging.error(f"Error in /overview endpoint: {e}")
+        return jsonify({"error": "Error fetching product list data"}), 500
 
 
 # store analyse
@@ -2130,10 +2152,15 @@ def stores_per_state():
     """Endpoint to fetch store count per state"""
     try:
         query = """
-        SELECT state, COUNT(storeID) AS storeCount
-        FROM stores
-        GROUP BY state
-        ORDER BY state;
+        SELECT 
+            state, 
+            COUNT(storeID) AS storeCount
+        FROM 
+            stores
+        GROUP BY 
+            state
+        ORDER BY 
+            state;
         """
         df = execute_query(query)
         if df is None:
