@@ -142,7 +142,6 @@
     </div>
     <div id="categories-options" class="sub-options">
         <button id="category-comparison">Comparison of category sales between stores</button>
-        <button id="top-categories">Top categories per store</button>
         <button id="total-sales-category">Total sales per category</button>
     </div>
     <div id="seasonal-analysis-options" class="sub-options">
@@ -235,9 +234,6 @@
             if (button.id === 'category-comparison') {
                 document.getElementById('detailChart').style.display = 'none';
                 loadChartData('/category_sales_comparison', 'Category Sales Comparison', 'Comparison of category sales between stores', null, 'bar', true);
-            } else if (button.id === 'top-categories') {
-                document.getElementById('detailChart').style.display = 'none';
-                loadChartData('/top_categories_per_store', 'Top Categories', 'Top categories per store', null, 'pie', false);
             } else if (button.id === 'seasonal-orders') {
                 loadChartData('/seasonal_order_analysis', 'Seasonal Orders', 'Analysis of seasonal orders');
             } else if (button.id === 'holiday-orders') {
@@ -322,23 +318,6 @@
                         datasets.forEach(dataset => {
                             dataset.data.push(storeCategoryMap[storeID][dataset.label] || 0);
                         });
-                    });
-                } else if (url === '/top_categories_per_store') {
-                    const storeLabels = data.data.map(item => `${item.storeID}`);
-                    const dataValues = data.data.map(item => item.NumberOfPizzasSold);
-                    const totalSales = dataValues.reduce((a, b) => a + b, 0);
-
-                    datasets = [{
-                        label: 'Top Categories',
-                        data: dataValues,
-                        backgroundColor: storeLabels.map(() => 'rgba(153, 102, 255, 0.2)'),
-                        borderColor: storeLabels.map(() => 'rgba(153, 102, 255, 1)'),
-                        borderWidth: 1
-                    }];
-
-                    labels = storeLabels.map((label, index) => {
-                        const percentage = ((dataValues[index] / totalSales) * 100).toFixed(2);
-                        return `${label}: ${percentage}% (${dataValues[index]})`;
                     });
                 } else if (url === '/seasonal_order_analysis') {
                     const seasons = {
