@@ -87,27 +87,16 @@
         }
         .chart-container {
             margin-top: 20px;
+            position: relative;
         }
-        #interval-select-container {
-            display: none;
-            margin-top: 10px;
+        .secondary-chart-container {
+            margin-top: 20px;
         }
-        #order-month-select-container {
-            display: none;
-            margin-top: 10px;
-        }
-        #month-filter-container {
-            display: none;
-            margin-top: 10px;
-        }
-        #year-filter-container {
-            display: none;
-            margin-top: 10px;
-        }
-        #store-select-container {
-            display: none;
-            margin-top: 10px;
-        }
+        #interval-select-container,
+        #order-month-select-container,
+        #month-filter-container,
+        #year-filter-container,
+        #store-select-container,
         #week-filter-container {
             display: none;
             margin-top: 10px;
@@ -121,31 +110,23 @@
         <a href="/customer" id="customer-link">Customer</a>
         <a href="/categories" id="categories-link">Categories</a>
         <a href="/products" id="products-link">Products</a>
-        <a href="/stores">Stores</a>
+        <a href="/stores" id="stores-link">Stores</a>
+        <a href="/list" id="list-link">Cost Overview</a>
     </nav>
     <div class="main-content">
         <h3>Order Analysis</h3>
         <div class="button-group">
             <button id="sales-figures">Sales Figures</button>
-            <button id="order-statistics">Order Statistics</button>
             <button id="order-activity">Order activity</button>
             <button id="revenue-profit">Revenue and Profit</button>
         </div>
         <div id="sales-figures-options" class="sub-options">
-            <button id="total-sales-per-store">Total sales figures per store</button>
-            <button id="sales-figures-per-month">Sales figures per month per store</button>
-        </div>
-        <div id="order-statistics-options" class="sub-options">
-            <button id="daily-order-statistics">Daily order statistics per store</button>
-            <button id="orders-per-weekday">Orders per weekday per store</button>
-            <button id="weekly-order-statistics">Weekly order statistics per store</button>
-            <button id="monthly-order-statistics">Monthly order statistics per store</button>
+            <button id="total-sales-per-store" class="active">Total sales figures per store</button>
         </div>
         <div id="revenue-profit-options" class="sub-options">
             <button id="revenue-and-profit-per-month">Revenue and profit per month per store</button>
             <button id="average-order-value">Average order value per store</button>
             <button id="average-order-performance">Average order performance between stores</button>
-            <button id="order-trends-over-time">Order trends over time periods</button>
         </div>
         <div id="order-activity-options" class="sub-options">
             <button id="order-activity-hour">Order activity per hour</button>
@@ -163,29 +144,43 @@
             </div>
             <div id="order-month-select-container">
                 <label for="order-month-select">Select Order Month:</label>
-                <select id="order-month-select"></select>
+                <select id="order-month-select">
+                    <option value="all">All</option>
+                </select>
             </div>
             <div id="month-filter-container">
                 <label for="month-select">Select Month:</label>
-                <select id="month-select"></select>
+                <select id="month-select">
+                    <option value="all">All</option>
+                </select>
             </div>
             <div id="year-filter-container">
                 <label for="year-select">Select Year:</label>
-                <select id="year-select"></select>
+                <select id="year-select">
+                    <option value="all">All</option>
+                </select>
             </div>
             <div id="store-select-container">
                 <label for="store-select">Select Store:</label>
-                <select id="store-select"></select>
+                <select id="store-select">
+                    <option value="all">All</option>
+                </select>
             </div>
             <div id="week-filter-container">
                 <label for="week-select">Select Week:</label>
-                <select id="week-select"></select>
+                <select id="week-select">
+                    <option value="all">All</option>
+                </select>
             </div>
             <canvas id="myChart"></canvas>
+        </div>
+        <div class="secondary-chart-container" id="secondary-chart-container" style="display: none;">
+            <canvas id="secondaryChart"></canvas>
         </div>
     </div>
     <script>
         let chartInstance;
+        let secondaryChartInstance;
 
         document.querySelectorAll('.button-group button').forEach(button => {
             button.addEventListener('click', () => {
@@ -196,7 +191,12 @@
                     chartInstance.destroy();
                     chartInstance = null;
                 }
+                if (secondaryChartInstance) {
+                    secondaryChartInstance.destroy();
+                    secondaryChartInstance = null;
+                }
                 document.getElementById('chart-container').style.display = 'none';
+                document.getElementById('secondary-chart-container').style.display = 'none';
                 document.getElementById('interval-select-container').style.display = 'none';
                 document.getElementById('order-month-select-container').style.display = 'none';
                 document.getElementById('month-filter-container').style.display = 'none';
@@ -207,10 +207,11 @@
                 const options = document.getElementById(button.id + '-options');
                 if (options) {
                     options.style.display = 'block';
-                }
-
-                if (button.id === 'order-activity') {
-                    document.getElementById('order-activity-options').style.display = 'block';
+                    // Automatically click the first sub-button
+                    const firstSubButton = options.querySelector('button');
+                    if (firstSubButton) {
+                        firstSubButton.click();
+                    }
                 }
             });
         });
@@ -220,6 +221,7 @@
                 document.querySelectorAll('.sub-options button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
                 document.getElementById('chart-container').style.display = 'block';
+                document.getElementById('secondary-chart-container').style.display = 'none';
                 document.getElementById('order-month-select-container').style.display = 'none';
                 document.getElementById('month-filter-container').style.display = 'none';
                 document.getElementById('year-filter-container').style.display = 'none';
@@ -227,50 +229,33 @@
                 document.getElementById('week-filter-container').style.display = 'none';
 
                 if (button.id === 'total-sales-per-store') {
-                    loadChartData('/total_items_sold_per_store', 'Total Items Sold', 'Total sales figures per store');
-                } else if (button.id === 'sales-figures-per-month') {
+                    loadChartData('/total_items_sold_per_store', 'Total Items Sold', 'Total sales figures per store', null, 'bar', addChartClickHandler);
+                }
+
+                if (button.id === 'revenue-and-profit-per-month') {
                     document.getElementById('order-month-select-container').style.display = 'block';
-                    loadOrderMonths();
-                } else if (button.id === 'daily-order-statistics') {
-                    loadChartData('/daily_order_stats', 'Daily Order Statistics', 'Daily order statistics per store', null, 'line');
-                } else if (button.id === 'orders-per-weekday') {
-                    loadChartData('/store_orders_by_weekday', 'Orders per Weekday', 'Orders per weekday per store', null, 'line');
-                } else if (button.id === 'weekly-order-statistics') {
-                    loadChartData('/weekly_order_stats', 'Weekly Order Statistics', 'Weekly order statistics per store', null, 'line');
-                } else if (button.id === 'monthly-order-statistics') {
-                    loadChartData('/monthly_order_stats', 'Monthly Order Statistics', 'Monthly order statistics per store', null, 'line');
-                } else if (button.id === 'revenue-and-profit-per-month') {
-                    document.getElementById('order-month-select-container').style.display = 'block';
-                    loadOrderMonths();
+                    loadOrderMonths().then(() => {
+                        const selectedMonth = document.getElementById('order-month-select').value;
+                        loadChartData('/store_revenue_and_profit_per_month', 'Revenue and Profit', 'Revenue and profit per month per store', selectedMonth);
+                    });
                 } else if (button.id === 'average-order-value') {
-                    loadChartData('/daily_average_order_value_per_store', 'Average Order Value', 'Average order value per store', null, 'line', 10, 350);
+                    loadChartData('/daily_average_order_value_per_store', 'Average Order Value', 'Average order value per store', null, 'line');
                 } else if (button.id === 'average-order-performance') {
                     loadChartData('/daily_store_performance_benchmark', 'Average Order Performance', 'Average order performance between stores');
-                } else if (button.id === 'order-trends-over-time') {
-                    document.getElementById('year-filter-container').style.display = 'block';
-                    loadYears();
                 } else if (button.id === 'order-activity-hour') {
                     document.getElementById('store-select-container').style.display = 'block';
                     document.getElementById('month-filter-container').style.display = 'block';
                     document.getElementById('week-filter-container').style.display = 'block';
-                    loadStores();
-                    loadMonths();
-                    loadWeeks();
-                    loadOrderActivityPerHour();
+                    Promise.all([loadStores(), loadMonths(), loadWeeks()]).then(loadOrderActivityPerHour);
                 } else if (button.id === 'order-activity-week') {
-                    loadStores();
-                    loadYears();
-                    loadMonths();
                     document.getElementById('store-select-container').style.display = 'block';
                     document.getElementById('year-filter-container').style.display = 'block';
                     document.getElementById('month-filter-container').style.display = 'block';
-                    loadWeeklyOrdersChart(); // Load the chart immediately
+                    Promise.all([loadStores(), loadYears(), loadMonths()]).then(loadWeeklyOrdersChart);
                 } else if (button.id === 'order-activity-month') {
-                    loadStores();
-                    loadYears();
                     document.getElementById('store-select-container').style.display = 'block';
                     document.getElementById('year-filter-container').style.display = 'block';
-                    loadOrderActivityPerMonth(); // Load the chart immediately
+                    Promise.all([loadStores(), loadYears()]).then(loadOrderActivityPerMonth);
                 }
             });
         });
@@ -286,10 +271,12 @@
         document.getElementById('order-month-select').addEventListener('change', () => {
             const scrollPosition = saveScrollPosition();
             const selectedMonth = document.getElementById('order-month-select').value;
-            if (document.getElementById('sales-figures-per-month').classList.contains('active')) {
-                loadChartData('/store_sales_per_month', 'Total Items Sold', 'Sales figures per month per store', selectedMonth);
-            } else if (document.getElementById('revenue-and-profit-per-month').classList.contains('active')) {
-                loadChartData('/store_revenue_and_profit_per_month', 'Revenue and Profit', 'Revenue and profit per month per store', selectedMonth);
+            if (document.getElementById('revenue-and-profit-per-month').classList.contains('active')) {
+                if (selectedMonth === 'all') {
+                    loadChartData('/total_items_sold_per_store', 'Total Items Sold', 'Total sales figures per store');
+                } else {
+                    loadChartData('/store_revenue_and_profit_per_month', 'Revenue and Profit', 'Revenue and profit per month per store', selectedMonth);
+                }
             }
             restoreScrollPosition(scrollPosition);
         });
@@ -297,9 +284,7 @@
         document.getElementById('year-select').addEventListener('change', () => {
             const scrollPosition = saveScrollPosition();
             const selectedYear = document.getElementById('year-select').value;
-            if (document.getElementById('order-trends-over-time').classList.contains('active')) {
-                loadChartData('/daily_order_trends', 'Order Trends', 'Order trends over time periods', selectedYear);
-            } else if (document.getElementById('order-activity-month').classList.contains('active')) {
+            if (document.getElementById('order-activity-month').classList.contains('active')) {
                 loadOrderActivityPerMonth();
             }
             restoreScrollPosition(scrollPosition);
@@ -344,7 +329,7 @@
         }
 
         function loadStores() {
-            fetch('/get_stores')
+            return fetch('/get_stores')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('store-select');
@@ -364,7 +349,7 @@
         }
 
         function loadYears() {
-            fetch('/get_years')
+            return fetch('/get_years')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('year-select');
@@ -384,7 +369,7 @@
         }
 
         function loadMonths() {
-            fetch('/get_months')
+            return fetch('/get_months')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('month-select');
@@ -441,14 +426,6 @@
                         const dayData = data.data.filter(item => item.weekday === day);
                         return dayData.reduce((sum, item) => sum + item.order_count, 0);
                     });
-
-                    const trace = {
-                        x: weekdays,
-                        y: orderCounts,
-                        type: 'bar'
-                    };
-
-                    const plotData = [trace];
 
                     const ctx = document.getElementById('myChart').getContext('2d');
                     if (chartInstance) {
@@ -657,11 +634,15 @@
                 .catch(error => console.error('Error fetching data:', error));
         }
 
-        function loadChartData(url, label, title, param = null, type = 'bar', stepSize = null, minY = 0, maxY = null) {
+        function loadChartData(url, label, title, param = null, type = 'bar', clickHandler = null, stepSize = null, minY = 0, maxY = null) {
             const scrollPosition = saveScrollPosition();
             let queryUrl = url;
             if (param) {
-                queryUrl += `?orderMonth=${param}`;
+                if (url.includes('/order_trends')) {
+                    queryUrl += `?orderYear=${param}`;
+                } else {
+                    queryUrl += `?orderMonth=${param}`;
+                }
             }
 
             fetch(queryUrl)
@@ -675,18 +656,6 @@
                     } else if (url === '/store_sales_per_month') {
                         labels = data.store_monthly_sales_data.map(item => item.storeID);
                         values = data.store_monthly_sales_data.map(item => item.totalItemsSold);
-                    } else if (url === '/daily_order_stats') {
-                        labels = data.data.map(item => item.orderDate);
-                        values = data.data.map(item => item.NumberOfOrders);
-                    } else if (url === '/store_orders_by_weekday') {
-                        labels = data.data.map(item => `${item.storeID} (${item.Weekday})`);
-                        values = data.data.map(item => item.totalOrders);
-                    } else if (url === '/weekly_order_stats') {
-                        labels = data.data.map(item => item.weekYear);
-                        values = data.data.map(item => item.NumberOfOrders);
-                    } else if (url === '/monthly_order_stats') {
-                        labels = data.data.map(item => item.monthYear);
-                        values = data.data.map(item => item.NumberOfOrders);
                     } else if (url === '/store_revenue_and_profit_per_month') {
                         labels = data.store_revenue_profit_data.map(item => item.storeID);
                         values = data.store_revenue_profit_data.map(item => item.totalRevenue);
@@ -724,12 +693,6 @@
                         },
                         options: {
                             scales: {
-                                x: {
-                                    title: {
-                                        display: true,
-                                        text: 'Period'
-                                    }
-                                },
                                 y: {
                                     beginAt: minY,
                                     ticks: {
@@ -750,7 +713,8 @@
                                         }
                                     }
                                 }
-                            }
+                            },
+                            onClick: clickHandler
                         }
                     });
 
@@ -763,12 +727,109 @@
                 });
         }
 
-        function getSelectedInterval() {
-            return document.getElementById('interval-select').value;
+        function addChartClickHandler(event, elements) {
+            if (elements.length > 0) {
+                const element = elements[0];
+                const storeID = chartInstance.data.labels[element.index];
+                loadSecondaryChart(storeID);
+            }
+        }
+
+        function loadSecondaryChart(storeID) {
+            const url = `/popular_products_by_store?storeID=${storeID}`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    let labels = [];
+                    let sizes = {
+                        'Small': [],
+                        'Medium': [],
+                        'Large': [],
+                        'Extra Large': []
+                    };
+
+                    data.data.forEach(item => {
+                        if (!labels.includes(item.Name)) {
+                            labels.push(item.Name);
+                        }
+                        sizes[item.size].push(item.total_items_sold_per_store);
+                    });
+
+                    const datasets = [
+                        {
+                            label: 'Small',
+                            data: sizes['Small'],
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Medium',
+                            data: sizes['Medium'],
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Large',
+                            data: sizes['Large'],
+                            backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                            borderColor: 'rgba(255, 206, 86, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Extra Large',
+                            data: sizes['Extra Large'],
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }
+                    ];
+
+                    const ctx = document.getElementById('secondaryChart').getContext('2d');
+                    if (secondaryChartInstance) {
+                        secondaryChartInstance.destroy();
+                    }
+
+                    secondaryChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: datasets
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    stacked: true
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAt: 0
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `Most Popular Products for Store ID: ${storeID}`
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.parsed.y}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    document.getElementById('secondary-chart-container').style.display = 'block';
+                })
+                .catch(error => console.error('Error loading secondary chart data:', error));
         }
 
         function loadOrderMonths() {
-            fetch('/order_month')
+            return fetch('/order_month')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('order-month-select');
@@ -785,16 +846,16 @@
                     });
                     if (data.length > 0) {
                         select.value = data[0].orderMonth;
-                        const activeButton = document.querySelector('.sub-options button.active');
-                        if (activeButton && activeButton.id === 'sales-figures-per-month') {
-                            loadChartData('/store_sales_per_month', 'Total Items Sold', 'Sales figures per month per store', data[0].orderMonth);
-                        } else if (activeButton && activeButton.id === 'revenue-and-profit-per-month') {
-                            loadChartData('/store_revenue_and_profit_per_month', 'Revenue and Profit', 'Revenue and profit per month per store', data[0].orderMonth);
-                        }
                     }
                 })
                 .catch(error => console.error('Error loading order months:', error));
         }
+
+        window.addEventListener('DOMContentLoaded', (event) => {
+            if (window.location.pathname === '/orders') {
+                document.getElementById('sales-figures').click();
+            }
+        });
     </script>
 </body>
 </html>
