@@ -103,7 +103,7 @@
             margin: auto;
         }
         .small-chart {
-            width: 60%;
+            width: 40%;
             height: 400px;
             margin: auto;
         }
@@ -135,7 +135,6 @@
         </div>
         <div id="sales-distribution-options" class="sub-options">
             <button id="weekly-sales-distribution-per-product">Weekly Sales Distribution per Product</button>
-            <button id="sales-trends-by-size">Sales Trends by Size</button>
         </div>
         <div id="orders-options" class="sub-options">
             <button id="category-share-of-total-orders">Category Share of Total Orders</button>
@@ -161,7 +160,7 @@
     </div>
     <script>
         let chartInstance;
-        const customColors = ['#E6E6FA', '#D8BFD8', '#DDA0DD', '#DA70D6', '#BA55D3', '#9932CC', '#9400D3', '#8A2BE2', '#6A5ACD'];
+        const customColors = ['#DDA0DD', '#DA70D6', '#BA55D3', '#A453EC', '#9400D3', '#8A2BE2', '#6A5ACD', '#4B0082' ];
 
         document.querySelectorAll('.button-group button').forEach(button => {
             button.addEventListener('click', () => {
@@ -179,6 +178,10 @@
                 const options = document.getElementById(button.id + '-options');
                 if (options) {
                     options.style.display = 'block';
+                    const firstSubButton = options.querySelector('button');
+                    if (firstSubButton) {
+                        firstSubButton.click();
+                    }
                 }
             });
         });
@@ -200,8 +203,6 @@
                     loadChartData('/size_popularity', 'Popularity of Pizza Sizes', 'Popularity of Pizza Sizes', 'pie', null, true);
                 } else if (button.id === 'weekly-sales-distribution-per-product') {
                     loadWeeklySalesDistributionChartData('/weekly_sales_distribution', 'Weekly Sales Distribution per Product', 'Weekly Sales Distribution per Product', 'bar');
-                } else if (button.id === 'sales-trends-by-size') {
-                    loadOrderDates();
                 } else if (button.id === 'category-share-of-total-orders') {
                     loadCategoryOrderShareChartData('/category_order_share', 'Category Share of Total Orders', 'Category Share of Total Orders', 'pie', true);
                 } else if (button.id === 'total-profit-per-pizza') {
@@ -448,87 +449,6 @@
                             }
                         };
                     }
-                })
-                .catch(error => console.error('Error loading chart data:', error));
-        }
-
-        function loadOrderDates() {
-            fetch('/sales_trend_by_size_only_date')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Order dates:', data);
-                    const dateSelect = document.getElementById('date-select');
-                    dateSelect.innerHTML = '';
-                    data.data.forEach(orderDate => {
-                        const option = document.createElement('option');
-                        option.value = orderDate;
-                        option.text = orderDate;
-                        dateSelect.appendChild(option);
-                    });
-
-                    dateSelect.addEventListener('change', () => {
-                        loadSalesTrendBySizeChartData('/sales_trend_by_size', dateSelect.value, '#D8BFD8');
-                    });
-
-                    if (data.data.length > 0) {
-                        loadSalesTrendBySizeChartData('/sales_trend_by_size', data.data[0], '#D8BFD8');
-                    }
-
-                    document.getElementById('date-select-container').style.display = 'block';
-                })
-                .catch(error => console.error('Error loading order dates:', error));
-        }
-
-        function loadSalesTrendBySizeChartData(url, orderDate, color) {
-            console.log(`Fetching sales trend data for date: ${orderDate}`);
-            fetch(`${url}?orderDate=${orderDate}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Data received:', data);
-                    const filteredData = data.data.filter(item => item.orderDate === orderDate);
-                    let labels = filteredData.map(item => item.Size);
-                    let values = filteredData.map(item => item.TotalQuantity);
-
-                    const canvas = document.getElementById('chartjsChart');
-                    const ctx = canvas.getContext('2d');
-                    if (chartInstance) {
-                        chartInstance.destroy();
-                    }
-
-                    chartInstance = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Total Quantity',
-                                data: values,
-                                backgroundColor: color,
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `Sales Trends by Size on ${orderDate}`
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            return `${context.dataset.label}: ${context.raw}`;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-
-                    document.getElementById('chart-container').style.display = 'block';
                 })
                 .catch(error => console.error('Error loading chart data:', error));
         }
