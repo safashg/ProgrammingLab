@@ -217,10 +217,10 @@
                 options.style.display = 'block';
             }
 
-            // Handle special case for order activity
-            if (button.id === 'order-activity') {
-                document.getElementById('interval-select-container').style.display = 'block';
-                loadChartData('/order_activity_over_time', 'Order Activity', 'Order activity over different time periods', getSelectedInterval());
+            // Click the first subbutton if it exists
+            const firstSubButton = options ? options.querySelector('button') : null;
+            if (firstSubButton) {
+                firstSubButton.click();
             }
         });
     });
