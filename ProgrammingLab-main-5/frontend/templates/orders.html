@@ -286,6 +286,8 @@
             const selectedYear = document.getElementById('year-select').value;
             if (document.getElementById('order-activity-month').classList.contains('active')) {
                 loadOrderActivityPerMonth();
+            } else if (document.getElementById('order-activity-week').classList.contains('active')) {
+                loadWeeklyOrdersChart(); // Hier die Bedingung hinzugefügt
             }
             restoreScrollPosition(scrollPosition);
         });
