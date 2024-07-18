@@ -94,17 +94,15 @@
 
         #total-revenue-chart-container {
             margin-bottom: 20px;
-            height: 300px;
+            height: 300px; /* Reduziert die Höhe auf die Hälfte */
         }
 
         #total-revenue-chart {
             width: 100%;
-            height: 100%;
+            height: 100%; /* Damit das Canvas-Element die Größe des Containers einnimmt */
         }
 
-        #year-filter-container,
-        #month-filter-container,
-        #week-filter-container {
+        #year-filter-container, #month-filter-container, #week-filter-container {
             display: none;
             margin-top: 10px;
         }
@@ -113,12 +111,13 @@
 
 <body>
     <nav>
-        <a href="/">Home</a>
+        <a href="/" id="home-link">Home</a>
         <a href="/orders" id="orders-link">Orders</a>
         <a href="/customer" id="customer-link">Customer</a>
         <a href="/categories" id="categories-link">Categories</a>
         <a href="/products" id="products-link">Products</a>
-        <a href="/stores">Stores</a>
+        <a href="/stores" id="stores-link">Stores</a>
+        <a href="/list" id="list-link">Cost Overview</a>
     </nav>
     <div class="main-content">
         <h3>Sales Dashboard</h3>
@@ -176,8 +175,8 @@
                 }
             });
 
-            // Automatically load "Sales Trends" data when on "Stores" page
-            fetchAndRenderData('sales-trends');
+            // Activate the Sales Trends button by default and fetch its data
+            document.getElementById('sales-trends').click();
         });
 
         document.querySelectorAll('.button-group button').forEach(button => {
@@ -187,7 +186,7 @@
                 document.getElementById('year-filter-container').style.display = 'none';
                 document.getElementById('month-filter-container').style.display = 'none';
                 document.getElementById('week-filter-container').style.display = 'none';
-                if (button.id === 'product-preferences' || button.id === 'store-profitability') {
+                if (button.id === 'product-preferences') {
                     document.getElementById('year-filter-container').style.display = 'block';
                     document.getElementById('month-filter-container').style.display = 'block';
                     document.getElementById('week-filter-container').style.display = 'block';
