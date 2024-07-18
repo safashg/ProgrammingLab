@@ -196,7 +196,7 @@
                 document.getElementById('chartjsChart').style.display = 'block';
 
                 if (button.id === 'most-popular-products') {
-                    loadChartData('/most_popular_products', 'Most Popular Products', 'Most Popular Products', 'bar', '#D8BFD8');
+                    loadChartData('/most_popular_products', 'Most Popular Products', 'Most Popular Products', 'bar', '#9370DB');
                 } else if (button.id === 'most-popular-pizza-types-per-week') {
                     loadYearWeeks();
                 } else if (button.id === 'popularity-of-pizza-sizes') {
@@ -320,7 +320,7 @@
                             datasets: [{
                                 label: 'Total Quantity',
                                 data: values,
-                                backgroundColor: '#D8BFD8',
+                                backgroundColor: '#9370DB',
                                 borderWidth: 0
                             }]
                         },
