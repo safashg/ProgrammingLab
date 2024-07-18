@@ -192,11 +192,10 @@
 
     document.querySelectorAll('.button-group button').forEach(button => {
         button.addEventListener('click', () => {
-            // Deactivate all main buttons and hide all sub-options
             document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
             document.querySelectorAll('.sub-options').forEach(opt => opt.style.display = 'none');
-            // Hide and destroy the previous chart
+
             if (chartInstance) {
                 chartInstance.destroy();
                 chartInstance = null;
@@ -211,13 +210,11 @@
             document.getElementById('interval-select-container').style.display = 'none';
             document.getElementById('store-select-container').style.display = 'none';
 
-            // Show the sub-options for the clicked main button
             const options = document.getElementById(button.id + '-options');
             if (options) {
                 options.style.display = 'block';
             }
 
-            // Click the first subbutton if it exists
             const firstSubButton = options ? options.querySelector('button') : null;
             if (firstSubButton) {
                 firstSubButton.click();
@@ -448,6 +445,13 @@
                                                 strokeStyle: chart.data.datasets[0].backgroundColor[index],
                                                 lineWidth: 0
                                             }));
+                                        } else if (url === '/seasonal_order_analysis') {
+                                            return labels.map((label, index) => ({
+                                                text: label,
+                                                fillStyle: chart.data.datasets[0].backgroundColor[index],
+                                                strokeStyle: chart.data.datasets[0].backgroundColor[index],
+                                                lineWidth: 0
+                                            }));
                                         } else {
                                             return Chart.defaults.plugins.legend.labels.generateLabels(chart);
                                         }
@@ -467,7 +471,7 @@
         fetch(`/seasonal_order_details?season=${season}`)
             .then(response => response.json())
             .then(data => {
-                console.log('Seasonal order details:', data); // Debugging log
+                console.log('Seasonal order details:', data);
                 if (!data.data) {
                     console.error('No data found for the selected season.');
                     return;
