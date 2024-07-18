@@ -160,7 +160,7 @@
     </div>
     <script>
         let chartInstance;
-        const customColors = ['#DDA0DD', '#DA70D6', '#BA55D3', '#A453EC', '#9400D3', '#8A2BE2', '#6A5ACD', '#4B0082' ];
+        const customColors = ['#DDA0DD', '#9370DB', '#8A2BE2', '#A453EC', '#9400D3', '#8A2BE2', '#6A5ACD', '#4B0082' ];
 
         document.querySelectorAll('.button-group button').forEach(button => {
             button.addEventListener('click', () => {
@@ -558,7 +558,7 @@
                             datasets: [{
                                 label: label,
                                 data: values,
-                                backgroundColor: customColors,
+                                backgroundColor: ['#DDA0DD', '#9370DB', '#8A2BE2'],
                                 borderWidth: 0
                             }]
                         },
