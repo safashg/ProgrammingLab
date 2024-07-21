@@ -1,2 +1,0 @@
-# ProgrammingLab
-Pizza-Project
